@@ -77,6 +77,6 @@ export default function Terrain({ onContinue, targetId, onTarget }) {
       {onContinue && site.planet === 'Earth' && <button type="button" className="card-cta" onClick={() => onContinue(site.id, target.id)}>Rehearse the mission here →</button>}
       <p className="muted">Window centre {site.lat.toFixed(2)}°, {site.lon.toFixed(2)}° · <a href={site.url}>{site.source}</a></p>
     </article>)}</div>
-    <p className="muted">“Steep slope” is the 90th percentile slope. Each image uses its own low-to-high color scale. The ranking averages the absolute differences from the selected target in relief, median slope, and 90th percentile slope, dividing each by the target’s value. Moon targets come from NASA LRO LOLA polar topography; Mars from NASA MGS MOLA; Earth from SRTM via Mapzen. This regional comparison cannot assess wheel-scale obstacles or soil.</p>
+    <p className="muted">“Steep slope” is the 90th percentile slope. Each image uses its own low-to-high color scale. The ranking averages the absolute differences from the selected target in relief, median slope, and 90th percentile slope, dividing each by the target’s value. Moon targets come from NASA LRO LOLA polar topography; Mars from NASA MGS MOLA; Earth from Mapzen Terrain Tiles (mainly NASA SRTM; sites above 60° N use the other sources Mapzen merges). This regional comparison cannot assess wheel-scale obstacles or soil.</p>
   </section>;
 }

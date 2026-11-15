@@ -72,7 +72,7 @@ function Credits() {
       <li><span>Mission storage</span>TigerData (PostgreSQL)</li>
       <li><span>Mission debriefs</span>Google Gemini</li>
       <li><span>SMS alerts</span>Twilio</li>
-      <li><span>Terrain data</span>NASA MGS MOLA · NASA SRTM via Mapzen</li>
+      <li><span>Terrain data</span>NASA LRO LOLA · NASA MGS MOLA · NASA SRTM via Mapzen Terrain Tiles</li>
     </ul>
   </footer>;
 }
