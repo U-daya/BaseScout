@@ -12,6 +12,9 @@ Hardware (Seeed Grove):
       A2 -> Grove Light Sensor     (raw 12-bit ADC value)
       A6 -> Grove Air Quality      (raw 12-bit ADC value)
   - Grove High Precision Barometer DPS310 (I2C 0x77) -> temp_c, pressure_hpa
+  - Grove LCD RGB Backlight (I2C 0x3e text, 0x62 colour), optional: shows cloud status,
+    the Pi's IP address and live readings; backlight green = streaming, amber = connecting,
+    red = relay down or sensor problem, blue = local-only
 
 Missing or failing sensors are sent as null. Leave the joystick untouched for the
 first second after starting so its centre can be calibrated.
@@ -24,6 +27,7 @@ Needs: sudo apt install -y python3-smbus2 python3-websockets   (I2C enabled)
 import asyncio
 import json
 import os
+import socket
 import time
 from datetime import datetime, timezone
 
@@ -166,12 +170,105 @@ def read_sample():
 
 # One sampler reads the sensors; local viewers and the cloud relay share its latest sample,
 # so the I2C bus is never read by two clients at once.
-latest = {"json": None}
+latest = {"json": None, "sample": None}
+# Relay state for the LCD: off (not configured), connecting, ok, retry; plus samples sent per second.
+relay_state = {"state": "off", "sent": 0, "rate": 0}
+
+
+# ---------- Grove LCD RGB Backlight (text 0x3e, backlight 0x62) ----------
+class GroveLCD:
+    """16x2 Grove LCD. Optional: any I2C error turns it off and telemetry carries on."""
+
+    def __init__(self, text_addr=0x3E, rgb_addr=0x62):
+        self.text, self.rgb, self.ok, self.shown = text_addr, rgb_addr, False, None
+        try:
+            time.sleep(0.05)
+            for command in (0x01, 0x08 | 0x04, 0x28):    # clear, display on (no cursor), 2 lines
+                self._command(command)
+                time.sleep(0.005)
+            for reg, value in ((0x00, 0x00), (0x01, 0x00), (0x08, 0xAA)):  # PCA9633: wake, PWM all LEDs
+                bus.write_byte_data(self.rgb, reg, value)
+            self.ok = True
+        except OSError as error:
+            print("LCD not available:", error)
+
+    def _command(self, value):
+        bus.write_byte_data(self.text, 0x80, value)
+
+    def colour(self, r, g, b):
+        if not self.ok:
+            return
+        try:
+            bus.write_byte_data(self.rgb, 0x04, r)
+            bus.write_byte_data(self.rgb, 0x03, g)
+            bus.write_byte_data(self.rgb, 0x02, b)
+        except OSError:
+            self.ok = False
+
+    def show(self, line1, line2):
+        lines = (line1[:16].ljust(16), line2[:16].ljust(16))
+        if not self.ok or lines == self.shown:
+            return
+        try:
+            for row, text in enumerate(lines):
+                self._command(0x80 if row == 0 else 0xC0)
+                for ch in text:
+                    bus.write_byte_data(self.text, 0x40, ord(ch) if ord(ch) < 128 else ord('?'))
+            self.shown = lines
+        except OSError:
+            self.ok = False
+
+
+def local_ip():
+    """The Pi's address on the current network (no packets are sent)."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.connect(("8.8.8.8", 80))
+            return probe.getsockname()[0]
+    except OSError:
+        return "no network"
+
+
+COLOURS = {"ok": (0, 140, 50), "connecting": (170, 100, 0), "retry": (170, 25, 10), "off": (20, 60, 170)}
+
+
+async def lcd_status():
+    lcd = GroveLCD(int(os.environ.get("LCD_ADDR", "0x3e"), 16), int(os.environ.get("RGB_ADDR", "0x62"), 16))
+    if not lcd.ok:
+        return
+    lcd.colour(*COLOURS["connecting"])
+    lcd.show("BaseScout", "starting...")
+    tick = 0
+    while True:
+        relay_state["rate"], relay_state["sent"] = relay_state["sent"], 0
+        state = relay_state["state"]
+        sample = latest["sample"] or {}
+        sensor_fault = sample.get("temp_c") is None and sample.get("light") is None
+        lcd.colour(*(COLOURS["retry"] if sensor_fault else COLOURS[state]))
+        phase = (tick // 3) % 2                       # alternate every 3 seconds
+        if phase == 0:
+            line1 = {"ok": f"CLOUD OK {relay_state['rate']:>3}Hz", "connecting": "CLOUD connecting",
+                     "retry": "CLOUD retrying..", "off": "LOCAL MODE"}[state]
+        else:
+            ip = local_ip()
+            line1 = f"IP {ip}" if len(ip) <= 13 else ip   # 16-character line
+        t, p = sample.get("temp_c"), sample.get("pressure_hpa")
+        aq, light = sample.get("air_quality"), sample.get("light")
+        if sensor_fault:
+            line2 = "SENSOR CHECK"
+        elif phase == 0:
+            line2 = f"{t if t is not None else '--'}C {round(p) if p is not None else '--'}hPa"
+        else:
+            line2 = f"AQ {aq if aq is not None else '--'} L {light if light is not None else '--'}"
+        lcd.show(line1, line2)
+        tick += 1
+        await asyncio.sleep(1)
 
 
 async def sampler():
     while True:
-        latest["json"] = json.dumps(read_sample())
+        latest["sample"] = read_sample()
+        latest["json"] = json.dumps(latest["sample"])
         await asyncio.sleep(1 / RATE_HZ)
 
 
@@ -194,19 +291,24 @@ async def relay():
     url, token = os.environ.get("RELAY_URL"), os.environ.get("RELAY_TOKEN")
     if not url or not token:
         print("Cloud relay off (set RELAY_URL and RELAY_TOKEN to enable)")
+        relay_state["state"] = "off"
         return
     delay = 1
+    relay_state["state"] = "connecting"
     while True:
         try:
             async with connect(url, additional_headers={"Authorization": f"Bearer {token}"},
                                open_timeout=10, ping_interval=20) as ws:
                 print(f"Cloud relay connected: {url}")
+                relay_state["state"] = "ok"
                 delay = 1
                 while True:
                     if latest["json"]:
                         await ws.send(latest["json"])
+                        relay_state["sent"] += 1
                     await asyncio.sleep(1 / RATE_HZ)
         except Exception as error:
+            relay_state["state"] = "retry"
             print(f"Cloud relay disconnected ({type(error).__name__}); retrying in {delay}s")
             await asyncio.sleep(delay)
             delay = min(delay * 2, 30)
@@ -216,7 +318,7 @@ async def main():
     print("Sample:", read_sample())
     async with serve(handler, "0.0.0.0", PORT):
         print(f"Telemetry on ws://<this-pi-ip>:{PORT}/telemetry")
-        await asyncio.gather(sampler(), relay())
+        await asyncio.gather(sampler(), relay(), lcd_status())
 
 
 if __name__ == "__main__":
