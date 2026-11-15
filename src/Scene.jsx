@@ -63,10 +63,11 @@ function mulberry32(seed) {
 function valueNoise(seed) {
   const random = mulberry32(seed), grid = new Float32Array(65536);
   for (let i = 0; i < grid.length; i++) grid[i] = random();
-  return (x, y) => {
-    const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+  // period: lattice cells before the pattern repeats (a power of two up to 256).
+  return (x, y, period = 256) => {
+    const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, m = period - 1;
     const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
-    const r0 = (yi & 255) << 8, r1 = ((yi + 1) & 255) << 8, c0 = xi & 255, c1 = (xi + 1) & 255;
+    const r0 = (yi & m) << 8, r1 = ((yi + 1) & m) << 8, c0 = xi & m, c1 = (xi + 1) & m;
     const a = grid[r0 | c0], b = grid[r0 | c1], c = grid[r1 | c0], d = grid[r1 | c1];
     return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
   };
@@ -74,6 +75,12 @@ function valueNoise(seed) {
 function fbm(noise, x, y, octaves) {
   let sum = 0, amplitude = .5, frequency = 1;
   for (let o = 0; o < octaves; o++) { sum += amplitude * noise(x * frequency, y * frequency); amplitude *= .5; frequency *= 2; }
+  return sum;
+}
+// Fractal noise that repeats exactly every `cells` units of its first octave, so textures tile without seams.
+function tileFbm(noise, x, y, octaves, cells) {
+  let sum = 0, amplitude = .5, frequency = 1;
+  for (let o = 0; o < octaves; o++) { sum += amplitude * noise(x * frequency, y * frequency, cells * frequency); amplitude *= .5; frequency *= 2; }
   return sum;
 }
 const smooth = (a, b, v) => { const t = THREE.MathUtils.clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -113,12 +120,12 @@ function soilTextures(size, anisotropy) {
   const albedo = new ImageData(size, size), normal = new ImageData(size, size);
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
     const u = x / size, v = y / size;
-    const broad = fbm(noise, u * 8, v * 8, 6);
+    const broad = tileFbm(noise, u * 8, v * 8, 6, 8);
     const grit = speck(u * 256, v * 256);
-    const pebble = smooth(.78, .9, fbm(speck, u * 64 + 5, v * 64 + 5, 2) * 1.6);
+    const pebble = smooth(.78, .9, tileFbm(speck, u * 64 + 5, v * 64 + 5, 2, 64) * 1.6);
     height[y * size + x] = broad * 1.2 + grit * .1 + pebble * .5;
     const shade = .62 + broad * .62 + (grit - .5) * .16 - pebble * .12;
-    const warm = fbm(noise, u * 4 + 17, v * 4 + 17, 3);
+    const warm = tileFbm(noise, u * 4 + 17, v * 4 + 17, 3, 4);
     const i = (y * size + x) * 4;
     albedo.data[i] = 255 * Math.min(1, shade * (.5 + warm * .04));
     albedo.data[i + 1] = 255 * Math.min(1, shade * (.48 + warm * .03));
@@ -286,15 +293,19 @@ export default function Scene({ site = defaultSite, testable = ['A', 'B'], faile
           pp.setXYZ(i, x * bump, Math.max(y, -.2) * bump, z * bump);
         }
         plantGeo.computeVertexNormals();
-      } else { // desert shrub: a tuft of thin stems fanning out from the root
+      } else { // desert shrub: woody stems fanning out from the root, topped with leaf clusters
         const stems = [], srand = mulberry32(4242);
-        for (let i = 0; i < 34; i++) {
-          const stem = new THREE.ConeGeometry(.035 + srand() * .04, .7 + srand() * .5, 4, 1);
+        const place = (g, lean, turn) => { g.rotateZ(lean); g.rotateY(turn); g.deleteAttribute('uv'); stems.push(g.index ? g.toNonIndexed() : g); };
+        for (let i = 0; i < 16; i++) {
+          const stem = new THREE.ConeGeometry(.03 + srand() * .03, .6 + srand() * .4, 4, 1);
           stem.translate(0, stem.parameters.height / 2, 0);
-          stem.rotateZ(srand() ** .7 * 1.2);
-          stem.rotateY(srand() * 6.283);
-          stem.deleteAttribute('uv');
-          stems.push(stem);
+          place(stem, srand() ** .7 * 1.1, srand() * 6.283);
+        }
+        for (let i = 0; i < 22; i++) {
+          const leaf = new THREE.IcosahedronGeometry(.2 + srand() * .16, 1);
+          leaf.scale(1, .75, 1);
+          leaf.translate(0, .45 + srand() * .5, 0);
+          place(leaf, srand() ** .8 * 1.15, srand() * 6.283);
         }
         plantGeo = mergeGeometries(stems);
       }
@@ -305,7 +316,7 @@ export default function Scene({ site = defaultSite, testable = ['A', 'B'], faile
         let x, z;
         do { x = (prand() - .5) * 70; z = (prand() - .5) * 56 - 6; }
         while (Object.values(pads).some(pad => Math.hypot(x - pad.x, z - pad.z) < 3) || Math.hypot(x - start.x, z - start.z) < 2.2);
-        const size = plantSpec.size * (.45 + prand() * .9);
+        const size = plantSpec.size * (.6 + prand() * .9);
         position.set(x, groundHeight(x, z) + (plantSpec.flat ? .01 : -.03), z);
         quaternion.setFromEuler(euler.set(0, prand() * 6.28, 0));
         scale.set(size * (1 + prand() * .6), plantSpec.flat ? size * .08 : size * (.55 + prand() * .35), size * (1 + prand() * .6));
@@ -435,6 +446,7 @@ export default function Scene({ site = defaultSite, testable = ['A', 'B'], faile
       const mine = ++generation;
       clearModel();
       if (!url) { status({ state: 'none' }); return; }
+      placeholder.visible = false;
       status({ state: 'loading', progress: 0, label });
       gltf.load(url, ({ scene: loaded }) => {
         if (!active || mine !== generation) { dispose(loaded); return; }
