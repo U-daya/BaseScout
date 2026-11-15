@@ -60,8 +60,9 @@ const VERT = [
   'vec3 askja=mix(vec3(.32,.31,.33),vec3(.86,.82,.76),aH1);vec3 moon=mix(vec3(.28,.28,.3),vec3(.92,.92,.95),aH2);vec3 kea=mix(vec3(.42,.2,.14),vec3(1.,.74,.56),aH3);',
   'vec3 col=mix(mars,askja,b);col=mix(col,moon,c);col=mix(col,kea,d);vCol=col;',
   'vec4 mv=modelViewMatrix*vec4(p,1.);gl_Position=projectionMatrix*mv;gl_PointSize=uPx*(1.6+aSeed*1.6)*(26./-mv.z);vAlpha=(.55+.45*aSeed)*uFade;}'].join('\n');
-const FRAG = 'varying vec3 vCol;varying float vAlpha;void main(){vec2 d=gl_PointCoord-.5;float r=dot(d,d);if(r>.25)discard;gl_FragColor=vec4(vCol,vAlpha*(1.-r*3.2));}';
-const pMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uA: { value: 0 }, uB: { value: 0 }, uC: { value: 0 }, uD: { value: 0 }, uTime: { value: 0 }, uPx: { value: 1 }, uFade: { value: 1 } }, vertexShader: VERT, fragmentShader: FRAG });
+// uMask0/uMask1: on-screen boxes of the visible text cards (device px, y up). Particles fade out inside them.
+const FRAG = 'varying vec3 vCol;varying float vAlpha;uniform vec4 uMask0;uniform vec4 uMask1;uniform float uFeather;float outside(vec4 m){vec2 p=gl_FragCoord.xy;float d=max(max(m.x-p.x,p.x-m.z),max(m.y-p.y,p.y-m.w));return smoothstep(0.,uFeather,d);}void main(){vec2 d=gl_PointCoord-.5;float r=dot(d,d);if(r>.25)discard;float k=outside(uMask0)*outside(uMask1);if(k<.01)discard;gl_FragColor=vec4(vCol,vAlpha*k*(1.-r*3.2));}';
+const pMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uA: { value: 0 }, uB: { value: 0 }, uC: { value: 0 }, uD: { value: 0 }, uTime: { value: 0 }, uPx: { value: 1 }, uFade: { value: 1 }, uMask0: { value: new THREE.Vector4(-9, -9, -9, -9) }, uMask1: { value: new THREE.Vector4(-9, -9, -9, -9) }, uFeather: { value: 60 } }, vertexShader: VERT, fragmentShader: FRAG });
 const planet = new THREE.Points(pGeo, pMat); scene.add(planet);
 const starGeo = new THREE.BufferGeometry(), starPos = new Float32Array(4000 * 3); for (let i = 0; i < 4000; i++) { const v = new THREE.Vector3().randomDirection().multiplyScalar(140 + Math.random() * 120); starPos.set([v.x, v.y, v.z], i * 3); }
 starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3)); const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 1.2, sizeAttenuation: false, transparent: true, opacity: .6 })); scene.add(stars);
@@ -159,6 +160,17 @@ const secs = [...document.querySelectorAll('section')]; const io = new Intersect
 let target = 0, T = 0; const sc = () => { const m = document.documentElement.scrollHeight - innerHeight; target = m > 0 ? scrollY / m : 0; }; addEventListener('scroll', sc, { passive: true }); sc();
 let mx = 0, my = 0; addEventListener('pointermove', e => { mx = e.clientX / innerWidth - .5; my = e.clientY / innerHeight - .5; });
 const prog = document.getElementById('prog'); const names = ['Moon and Mars', 'Jezero', 'Askja', 'Shackleton', 'Mauna Kea', 'Rover', 'Mobility', 'Power', 'Navigation', 'Systems', 'Touchdown'];
+// Keep particles out from behind text: mask the boxes of the cards currently on screen.
+const cards = [...document.querySelectorAll('section .card')];
+const NONE = [-9, -9, -9, -9];
+function updateTextMask() {
+  const dpr = renderer.getPixelRatio(), pad = 6, H = innerHeight;
+  const boxes = cards.map(c => c.getBoundingClientRect()).filter(r => r.bottom > 0 && r.top < H && r.width > 0)
+    .sort((a, b) => Math.abs(a.top + a.height / 2 - H / 2) - Math.abs(b.top + b.height / 2 - H / 2)).slice(0, 2)
+    .map(r => [(r.left - pad) * dpr, (H - r.bottom - pad) * dpr, (r.right + pad) * dpr, (H - r.top + pad) * dpr]);
+  pMat.uniforms.uMask0.value.set(...(boxes[0] ?? NONE)); pMat.uniforms.uMask1.value.set(...(boxes[1] ?? NONE));
+  pMat.uniforms.uFeather.value = 130 * dpr;
+}
 const clock = new THREE.Clock(); const v = new THREE.Vector3(); let landedAt = -1;
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), .05), time = clock.elapsedTime;
@@ -166,6 +178,7 @@ renderer.setAnimationLoop(() => {
   const t = Math.min(1, Math.max(0, (T - .44) / .56));
   const A = smP(.04, .12, T), B = smP(.13, .21, T), C = smP(.22, .3, T), D = smP(.31, .39, T), pf = 1 - smP(.4, .46, T);
   pMat.uniforms.uA.value = A; pMat.uniforms.uB.value = B; pMat.uniforms.uC.value = C; pMat.uniforms.uD.value = D;
+  updateTextMask();
   pMat.uniforms.uTime.value = time; pMat.uniforms.uFade.value = pf; planet.visible = pf > 0; stars.material.opacity = .6 * (1 - smP(.44, .52, T) * .6);
   document.getElementById('scoreMars').textContent = (.28 * smP(.14, .21, T)).toFixed(2);
   document.getElementById('scoreMoon').textContent = (.46 * smP(.32, .39, T)).toFixed(2);

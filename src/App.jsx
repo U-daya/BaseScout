@@ -123,7 +123,7 @@ function App() {
 
   const chip = { live:'Pi connected', connecting:'Pi connecting…', off:'Keyboard control · Pi offline' }[piStatus];
   return <>
-    <header className="top"><a className="brand" href="/" title="Back to the BaseScout home page"><svg className="brand-icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><circle cx="10" cy="10" r="2.2" className="core"/><path d="M10 0v4M10 16v4M0 10h4M16 10h4"/></svg>BaseScout<span className="brand-tag">Space Apps NYC 2026</span></a>
+    <header className="top"><a className="brand" href="/" title="Back to the BaseScout home page"><svg className="brand-icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8"/><path className="lit" d="M10 2a8 8 0 0 0 0 16a4.6 8 0 0 1 0-16z"/><circle cx="13.2" cy="10" r="2.5"/><circle className="core" cx="13.2" cy="10" r=".95"/></svg>BaseScout<span className="brand-tag">Space Apps NYC 2026</span></a>
     <nav aria-label="Main views">
       <button type="button" aria-pressed={tab==='terrain'} onClick={()=>setTab('terrain')}><span className="step-num">1</span> Find the Earth twin</button>
       <button type="button" aria-pressed={tab==='mission'} onClick={()=>setTab('mission')}><span className="step-num">2</span> Rehearse the landing</button>

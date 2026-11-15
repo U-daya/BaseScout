@@ -339,3 +339,4 @@ a.brand { color: inherit; text-decoration: none; }
 .site-select small { color: var(--muted); font-size: .74rem; }
 .muted.fine { font-size: .78rem; line-height: 1.45; }
 .muted.fine span[title] { text-decoration: underline dotted; cursor: help; }
+.brand-icon .lit { fill: var(--accent); stroke: none; opacity: .85; }

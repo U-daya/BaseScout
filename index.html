@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <title>BaseScout</title>
 <meta name="description" content="Find the Earth twins of Moon and Mars base sites with real NASA elevation data, then rehearse the rover scouting mission there.">
 <script>if (new URLSearchParams(location.search).has("mission")) location.replace("/app" + location.search);</script>
@@ -45,7 +46,7 @@ section.c .eyebrow::before{display:none}
 </style></head><body>
 <canvas id="gl"></canvas><div class="scrim c" id="scrim"></div>
 <div id="labels"><svg id="leaders"></svg></div>
-<div class="top"><span class="brand"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5"/><circle cx="10" cy="10" r="2.2" style="fill:var(--accent);stroke:none"/><path d="M10 0v4M10 16v4M0 10h4M16 10h4"/></svg>BaseScout</span><span><a href="/app" style="color:inherit">Open the app →</a></span></div>
+<div class="top"><span class="brand"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="8"/><path d="M10 2a8 8 0 0 0 0 16a4.6 8 0 0 1 0-16z" style="fill:var(--accent);stroke:none;opacity:.85"/><circle cx="13.2" cy="10" r="2.5"/><circle cx="13.2" cy="10" r=".95" style="fill:var(--accent);stroke:none"/></svg>BaseScout</span><span><a href="/app" style="color:inherit">Open the app →</a></span></div>
 <div class="prog" id="prog"></div><div class="place" id="place"></div>
 <main>
   <section><div class="card"><div class="eyebrow">NASA Space Apps NYC 2026 · BaseScout</div><h1>Where do we build on the <em>Moon</em> and <em>Mars?</em></h1><p>Find each base site's twin on Earth, then rehearse the scouting mission there. Scroll: every point you see is real elevation data.</p></div></section>
