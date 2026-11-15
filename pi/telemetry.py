@@ -236,7 +236,9 @@ def local_ip():
         return "no network"
 
 
-COLOURS = {"ok": (0, 140, 50), "connecting": (170, 100, 0), "retry": (170, 25, 10), "off": (20, 60, 170)}
+# Distinct status colours: the backlight alone works as a status light (the v4.0 LCD needs 5 V
+# for visible text, so on a 3.3 V Grove Hat only the colour shows).
+COLOURS = {"ok": (0, 200, 0), "connecting": (220, 120, 0), "retry": (220, 0, 0), "off": (0, 0, 220)}
 
 
 async def lcd_status():
