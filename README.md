@@ -15,7 +15,7 @@ NASA Space Apps prototype. Compare real Earth and Mars elevation windows, then d
 
 ### Repository
 
-Public repo: <https://github.com/U-daya/BaseScout>. Clone it with `git clone https://github.com/U-daya/BaseScout.git`. Collaborators are added in the repo settings. Use the example env files to configure your own local settings. Because the repo is public, credentials, deployment secrets, and temporary tunnel URLs must never be committed. Keep them in `.env`, `.dev.vars`, or Wrangler secrets.
+Public repo: <https://github.com/U-daya/KnowWhere>. Clone it with `git clone https://github.com/U-daya/KnowWhere.git`. Collaborators are added in the repo settings. Use the example env files to configure your own local settings. Because the repo is public, credentials, deployment secrets, and temporary tunnel URLs must never be committed. Keep them in `.env`, `.dev.vars`, or Wrangler secrets.
 
 ## Build order
 
@@ -69,7 +69,7 @@ If you move a sensor to another port, set `JOY_X_CH`, `JOY_Y_CH`, `LIGHT_CH`, or
 ```bash
 sudo raspi-config nonint do_i2c 0
 sudo apt install -y git i2c-tools python3-smbus2 python3-websockets
-git clone https://github.com/U-daya/BaseScout.git ~/BaseScout
+git clone https://github.com/U-daya/KnowWhere.git ~/BaseScout
 python3 ~/BaseScout/pi/telemetry.py
 ```
 

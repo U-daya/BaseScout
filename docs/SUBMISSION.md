@@ -4,7 +4,7 @@ Copy-paste material for the NASA Space Apps Challenge 2026 project page (Team T3
 Numbers below come straight from `public/terrain/sites.json` and the app; re-check them if the data changes.
 
 - **Live demo:** https://knowwhere.nyc (backup: https://basescout.basescout-team.workers.dev/)
-- **Code:** https://github.com/U-daya/BaseScout
+- **Code:** https://github.com/U-daya/KnowWhere
 - **Challenge:** Identify Earth locations that analog the permanent Moon base locations and Mars
 
 ---
