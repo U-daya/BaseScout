@@ -136,12 +136,15 @@ function App() {
         <div className="mission-head">
           <div className="intro"><p className="eyebrow">STEP 2 · LANDING REHEARSAL</p><h1>Pick the landing pad</h1>
             <p>Rehearsing <b>{target.name}</b> ({target.planet}) at <b>{siteName(site)}</b>. Drive to a pad, sample its soil, choose the base site.</p></div>
-          <label className="site-select"><span>Earth test site</span>
-            <select value={site} disabled={sampling} onChange={e => changeSite(e.target.value)}>
-              {siteOptions.map((s, i) => <option key={s.id} value={s.id}>{shortName(s.id)}{s.score != null ? ` · ${s.score.toFixed(2)}${i === 0 ? ' · best twin' : ''}` : ''}</option>)}
-            </select>
-            <small>{ranked.length ? `Sorted by terrain match to ${target.name}` : 'Real analog sites on Earth'}</small>
-          </label>
+        </div>
+        <div className="site-chips-wrap">
+          <span className="site-chips-label">Earth test site<small>{ranked.length ? ` · closest match to ${target.name} first` : ''}</small></span>
+          <div className="site-chips" role="tablist" aria-label="Earth test site">
+            {siteOptions.map((s, i) => <button key={s.id} type="button" role="tab" aria-selected={s.id === site} disabled={sampling}
+              className={i === 0 && s.score != null ? 'best' : undefined} onClick={() => changeSite(s.id)}>
+              {i === 0 && s.score != null && <span className="best-tag">Best twin</span>}{shortName(s.id)}{s.score != null && <em>{s.score.toFixed(2)}</em>}
+            </button>)}
+          </div>
         </div>
         <StepTracker mission={mission} atPad={atPad}/>
         <div className="mission-grid">
