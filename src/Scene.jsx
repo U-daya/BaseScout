@@ -7,13 +7,6 @@ import { Sky } from 'three/addons/objects/Sky.js';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { pads, start, nearPad } from './mission';
 
-function box(group, color, size, position) {
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), new THREE.MeshStandardMaterial({ color, roughness: .42, metalness: .15 }));
-  mesh.position.set(...position);
-  group.add(mesh);
-  return mesh;
-}
-
 const keysByAxis = { KeyW: [0,1], ArrowUp: [0,1], KeyS: [0,-1], ArrowDown: [0,-1], KeyA: [-1,0], ArrowLeft: [-1,0], KeyD: [1,0], ArrowRight: [1,0] };
 const ROVER_LENGTH = 1.8;
 const MAX_SPEED = 6;
@@ -283,22 +276,8 @@ export default function Scene({ target, recommendation, joystick, onArrival, pau
     const rover = new THREE.Group();
     rover.position.set(start.x, groundHeight(start.x, start.z), start.z);
     scene.add(rover);
-    const placeholder = new THREE.Group();
+    const { group: placeholder, wheels } = buildRover();
     rover.add(placeholder);
-    box(placeholder, '#b9b4a8', [1.35, .35, 1.8], [0, .55, 0]);
-    box(placeholder, '#c9c6be', [.85, .45, 1.03], [0, .78, .04]);
-    box(placeholder, '#8d8a84', [.13, .63, .13], [0, 1.1, -.38]);
-    box(placeholder, '#c9c6be', [.48, .24, .29], [0, 1.47, -.44]);
-    box(placeholder, '#10181d', [.38, .1, .025], [0, 1.47, -.60]);
-    const wheels = [];
-    for (const x of [-.76, .76]) for (const z of [-.66, 0, .66]) {
-      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(.3, .3, .28, 28), new THREE.MeshStandardMaterial({ color: '#1f1e20', roughness: .85, normalMap: soilNormal }));
-      wheel.rotation.z = Math.PI / 2;
-      wheel.position.set(x, .31, z);
-      placeholder.add(wheel);
-      wheels.push(wheel);
-    }
-    placeholder.traverse(o => { if (o.isMesh) o.castShadow = true; });
 
     // Wheel tracks
     const MAX_TRACKS = 700;
@@ -452,7 +431,7 @@ export default function Scene({ target, recommendation, joystick, onArrival, pau
           const delta = Math.atan2(Math.sin(goal - heading), Math.cos(goal - heading));
           heading += delta * (1 - Math.exp(-dt * 9));
         }
-        for (const wheel of wheels) wheel.rotation.x -= step / .3;
+        for (const wheel of wheels) wheel.rotation.x -= step / .2;
         sinceTrack += step;
       } else {
         velocity.set(0, 0);
@@ -528,6 +507,86 @@ export default function Scene({ target, recommendation, joystick, onArrival, pau
   useEffect(() => { loader.current?.(modelUrl?.url, modelUrl?.label); }, [modelUrl]);
 
   return <div className="scene" ref={mount} aria-label="3D rover scouting field">{error && <p>WebGL is unavailable. Enable graphics acceleration or try another browser.</p>}</div>;
+}
+
+// Procedural six-wheel rover used until the SolidWorks model is loaded.
+// About 1.8 m long, nose toward -Z, wheels resting on y = 0.
+function buildRover() {
+  const group = new THREE.Group();
+  const mat = (color, roughness, metalness = 0) => new THREE.MeshStandardMaterial({ color, roughness, metalness });
+  const hull = mat('#dcd8cf', .55, .15), panel = mat('#c4c0b7', .6, .1), dark = mat('#2c2d30', .5, .6);
+  const alloy = mat('#a9a7a2', .45, .8), gold = mat('#c79f45', .32, .9), glass = mat('#0c1013', .12, .4);
+  const solar = mat('#1c2836', .28, .55);
+  const add = (geometry, material, position, rotation = [0, 0, 0], parent = group) => {
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(...position);
+    mesh.rotation.set(...rotation);
+    parent.add(mesh);
+    return mesh;
+  };
+  const boxGeo = (x, y, z) => new THREE.BoxGeometry(x, y, z);
+  const cyl = (r, h, s = 20) => new THREE.CylinderGeometry(r, r, h, s);
+
+  // Body: electronics box with a deck plate, gold thermal blanket and a solar panel on top
+  add(boxGeo(.92, .3, 1.2), hull, [0, .72, 0]);
+  add(boxGeo(1.04, .035, 1.34), panel, [0, .885, 0]);
+  add(boxGeo(.9, .2, .02), gold, [0, .7, .61]);
+  add(boxGeo(.86, .015, .62), solar, [0, .91, .22]);
+  for (const x of [-.215, 0, .215]) add(boxGeo(.006, .017, .6), panel, [x, .912, .22]);
+
+  // Hazard cameras on the front face
+  for (const x of [-.16, .16]) add(cyl(.028, .04, 12), glass, [x, .74, -.61], [Math.PI / 2, 0, 0]);
+
+  // Power unit at the rear, angled down, with cooling fins
+  const rtg = new THREE.Group();
+  rtg.position.set(0, .82, .78);
+  rtg.rotation.x = -.55;
+  group.add(rtg);
+  add(cyl(.1, .42, 18), dark, [0, 0, 0], [0, 0, 0], rtg);
+  for (let i = 0; i < 8; i++) {
+    const a = i / 8 * Math.PI * 2;
+    add(boxGeo(.012, .38, .09), dark, [Math.cos(a) * .12, 0, Math.sin(a) * .12], [0, -a, 0], rtg);
+  }
+
+  // Mast with a stereo camera head
+  add(cyl(.032, .78, 14), alloy, [.27, 1.28, -.48]);
+  add(boxGeo(.34, .13, .15), hull, [.27, 1.72, -.5]);
+  for (const x of [.17, .37]) add(cyl(.035, .03, 14), glass, [x, 1.72, -.585], [Math.PI / 2, 0, 0]);
+  add(boxGeo(.08, .06, .02), glass, [.27, 1.76, -.585]);
+
+  // High-gain dish and low-gain antenna
+  add(cyl(.025, .16, 10), alloy, [-.3, .98, .05]);
+  add(new THREE.CylinderGeometry(.17, .14, .025, 28), panel, [-.3, 1.07, .05], [-.5, 0, .2]);
+  add(cyl(.012, .32, 8), alloy, [-.36, 1.05, .45]);
+
+  // Folded robotic arm across the front
+  add(boxGeo(.06, .06, .5), alloy, [-.18, .62, -.72], [0, Math.PI / 2, 0]);
+  add(boxGeo(.14, .12, .12), dark, [.12, .62, -.74]);
+
+  // Rocker-bogie suspension and six aluminium wheels with grousers
+  const wheels = [];
+  for (const side of [-1, 1]) {
+    const x = side * .55;
+    add(cyl(.05, .07, 14), dark, [x, .66, -.05], [0, 0, Math.PI / 2]);
+    add(boxGeo(.05, .05, .78), alloy, [x, .5, -.32], [-.42, 0, 0]);
+    add(boxGeo(.05, .05, .5), alloy, [x, .5, .2], [.5, 0, 0]);
+    add(boxGeo(.05, .05, .56), alloy, [x, .36, .45], [-.12, 0, 0]);
+    for (const z of [-.62, 0, .62]) {
+      const spin = new THREE.Group();
+      spin.position.set(side * .68, .2, z);
+      group.add(spin);
+      add(cyl(.2, .17, 30), alloy, [0, 0, 0], [0, 0, Math.PI / 2], spin);
+      add(cyl(.07, .19, 16), dark, [0, 0, 0], [0, 0, Math.PI / 2], spin);
+      for (let i = 0; i < 14; i++) {
+        const a = i / 14 * Math.PI * 2;
+        add(boxGeo(.17, .018, .03), dark, [0, Math.cos(a) * .205, Math.sin(a) * .205], [a, 0, 0], spin);
+      }
+      add(boxGeo(.04, .2, .04), alloy, [side * .6, .32, z]);
+      wheels.push(spin);
+    }
+  }
+  group.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  return { group, wheels };
 }
 
 function dispose(group) {

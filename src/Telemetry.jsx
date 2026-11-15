@@ -7,6 +7,25 @@ const sensors = [
   ['joystick_x','Joystick X',''], ['joystick_y','Joystick Y',''],
 ];
 export const DEAD_ZONE = 0.12;
+const HISTORY_SECONDS = 30;
+const HISTORY_STEP_MS = 250;
+
+// Recent values for one sensor as a small line; shows the last 30 s of samples.
+// Smallest vertical range per sensor, so sensor noise isn't stretched into fake swings.
+const MIN_SPAN = { uv: 1, light: 200, air_quality: 60, temp_c: 1, pressure_hpa: 1, joystick_x: 2, joystick_y: 2 };
+
+function Sparkline({ values, span = 1 }) {
+  const points = values.filter(v => v != null);
+  if (points.length < 2) return <svg className="spark" viewBox="0 0 100 24" aria-hidden="true"/>;
+  let min = Math.min(...points), max = Math.max(...points);
+  if (max - min < span) { const mid = (max + min) / 2; min = mid - span / 2; max = mid + span / 2; }
+  const n = values.length;
+  const path = values.map((v, i) => v == null ? null : `${(i / (n - 1)) * 100},${22 - ((v - min) / (max - min)) * 20}`)
+    .filter(Boolean).join(' ');
+  return <svg className="spark" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true">
+    <polyline points={path} vectorEffect="non-scaling-stroke"/>
+  </svg>;
+}
 const numeric = value => Number.isFinite(value) ? value : null;
 const axis = value => Math.abs(value) <= 1 ? (value ?? 0) : 0;
 
@@ -51,6 +70,7 @@ export default function Telemetry({ joystick, onStatus }) {
   const [endpoint,setEndpoint] = useState(import.meta.env.VITE_TELEMETRY_URL ?? '');
   const [status,setStatus] = useState('Pi disconnected');
   const [packet,setPacket] = useState(null);
+  const history = useRef({ at: 0, values: Object.fromEntries(sensors.map(([key]) => [key, []])) });
   const [attempt,setAttempt] = useState(0);
   const [invert,setInvertState] = useState(() => stored('basescout.invert', { x:false, y:false }));
   const [rate,setRate] = useState(0);
@@ -65,6 +85,7 @@ export default function Telemetry({ joystick, onStatus }) {
     clear();
     setPacket(null);
     setRate(0);
+    for (const key in history.current.values) history.current.values[key] = [];
     if (!endpoint) { setStatus('Pi disconnected'); return; }
     if (mixedContentBlocked(endpoint)) {
       setStatus('Blocked: this https:// page cannot open ws://. Use wss:// or run the app locally.');
@@ -114,6 +135,15 @@ export default function Telemetry({ joystick, onStatus }) {
         received: performance.now(),
       };
       count++;
+      const now = performance.now(), h = history.current;
+      if (now - h.at >= HISTORY_STEP_MS) {
+        h.at = now;
+        for (const [key] of sensors) {
+          const list = h.values[key];
+          list.push(normalized[key]);
+          if (list.length > HISTORY_SECONDS * 1000 / HISTORY_STEP_MS) list.shift();
+        }
+      }
       setPacket(normalized);
       setStatus('Pi connected');
       clearTimeout(timer);
@@ -142,7 +172,7 @@ export default function Telemetry({ joystick, onStatus }) {
       with <code>npm run dev</code> and open <code>http://127.0.0.1:5173</code>. See “Pi demo setup” in the README.
     </p>}
     <div className="telemetry-body">
-      <dl className="readings">{sensors.map(([key,label,unit]) => <div key={key}><dt>{label}</dt><dd>{packet?.[key] == null ? '—' : `${packet[key]}${unit}`}</dd></div>)}</dl>
+      <dl className="readings">{sensors.map(([key,label,unit]) => <div key={key}><dt>{label}</dt><dd>{packet?.[key] == null ? '—' : `${packet[key]}${unit}`}</dd><Sparkline values={history.current.values[key]} span={MIN_SPAN[key]}/></div>)}</dl>
       <JoystickCheck packet={packet} invert={invert} setInvert={setInvert} rate={rate}/>
     </div>
     <p className="muted">Sample time {packet?.timestamp ?? '—'}. Light and air quality are raw 12-bit ADC readings (0–4095). Temperature and pressure come from a DPS310 barometer. No UV sensor is connected. Keyboard always overrides the joystick.</p>

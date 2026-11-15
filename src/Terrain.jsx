@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import Terrain3D from './Terrain3D';
 
 const root = import.meta.env.BASE_URL + 'terrain/';
 const metrics = [['relief','Relief','m','Elevation range across the window'],['median','Median slope','°','Median terrain slope'],['p90','Steep slope','°','90th percentile slope']];
@@ -48,6 +49,7 @@ export default function Terrain({ onContinue }) {
       </div>
       {onContinue && <button type="button" className="primary" onClick={onContinue}>Scout a base at {closest.name.split(',')[0]} →</button>}
     </div>
+    <Terrain3D sites={sites} root={root}/>
     <ScoreBreakdown ranked={ranked} mars={mars}/>
     <div className="terrain-grid">{sites.map(site => <article className={`panel terrain-card${site.id===closest.id ? ' best' : ''}`} key={site.id}>
       <div className="panel-head"><h2>{site.name}</h2><span className="muted">{site.id===closest.id ? 'Best Earth match' : site.planet}</span></div>
