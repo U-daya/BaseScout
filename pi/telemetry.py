@@ -182,10 +182,17 @@ class GroveLCD:
     def __init__(self, text_addr=0x3E, rgb_addr=0x62):
         self.text, self.rgb, self.ok, self.shown = text_addr, rgb_addr, False, None
         try:
+            # Same start-up as Seeed's rgb_lcd library: function set (2 lines) three times,
+            # then display on, clear, and left-to-right entry mode.
             time.sleep(0.05)
-            for command in (0x01, 0x08 | 0x04, 0x28):    # clear, display on (no cursor), 2 lines
-                self._command(command)
-                time.sleep(0.005)
+            for pause in (0.0045, 0.00015, 0.0001):
+                self._command(0x28)
+                time.sleep(pause)
+            self._command(0x28)
+            self._command(0x0C)                           # display on, cursor off
+            self._command(0x01)                           # clear
+            time.sleep(0.002)
+            self._command(0x06)                           # entry mode: increment, no shift
             for reg, value in ((0x00, 0x00), (0x01, 0x00), (0x08, 0xAA)):  # PCA9633: wake, PWM all LEDs
                 bus.write_byte_data(self.rgb, reg, value)
             self.ok = True
