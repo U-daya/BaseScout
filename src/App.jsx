@@ -119,7 +119,7 @@ function App() {
 
   const chip = { live:'Pi connected', connecting:'Pi connecting…', off:'Pi disconnected' }[piStatus];
   return <>
-    <header className="top"><div className="brand"><svg className="brand-icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><circle cx="10" cy="10" r="2.2" className="core"/><path d="M10 0v4M10 16v4M0 10h4M16 10h4"/></svg>BaseScout<span className="brand-tag">Space Apps NYC 2026</span></div>
+    <header className="top"><a className="brand" href="/" title="Back to the BaseScout home page"><svg className="brand-icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><circle cx="10" cy="10" r="2.2" className="core"/><path d="M10 0v4M10 16v4M0 10h4M16 10h4"/></svg>BaseScout<span className="brand-tag">Space Apps NYC 2026</span></a>
     <nav aria-label="Main views">
       <button type="button" aria-pressed={tab==='terrain'} onClick={()=>setTab('terrain')}><span className="step-num">1</span> Find an analog</button>
       <button type="button" aria-pressed={tab==='mission'} onClick={()=>setTab('mission')}><span className="step-num">2</span> Scout a base</button>
