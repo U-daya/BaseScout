@@ -1,5 +1,6 @@
 import React from 'react';
 import { useEffect, useRef, useState } from 'react';
+import TigerHistory from './TigerHistory';
 
 const sensors = [
   ['uv','UV',''], ['light','Light (raw)',''], ['air_quality','Air quality (raw)',''],
@@ -186,6 +187,7 @@ export default function Telemetry({ joystick, onStatus, onPacket }) {
       <dl className="readings">{sensors.map(([key,label,unit]) => <div key={key}><dt>{label}</dt><dd>{packet?.[key] == null ? '—' : `${packet[key]}${unit}`}</dd><Sparkline values={history.current.values[key]} span={MIN_SPAN[key]}/></div>)}</dl>
       <JoystickCheck packet={packet} invert={invert} setInvert={setInvert} rate={rate}/>
     </div>
+    <TigerHistory/>
     <p className="muted">Sample time {packet?.timestamp ?? '—'}. Light and air quality are raw 12-bit ADC readings (0–4095). Temperature and pressure come from a DPS310 barometer. No UV sensor is connected. Keyboard always overrides the joystick.</p>
   </section>;
 }

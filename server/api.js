@@ -2,6 +2,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { runMission, siteIds, siteName, baseTargets } from '../src/mission.js';
 import { missionDebrief } from './debrief.js';
 import { sendMissionAlert } from './notify.js';
+import { cleanSamples, insertSamples, telemetryHistory } from './telemetryStore.js';
 
 export const missionIdPattern = '[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
 const pathPattern = new RegExp(`^/api/missions(?:/(?<id>${missionIdPattern}))?$`);
@@ -34,9 +35,25 @@ function authorized(request, token) {
   return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
-export function missionApi(db, token, gemini = {}, twilio = null) {
+export function missionApi(db, token, gemini = {}, twilio = null, store = { ready: false }) {
   return async request => {
-    const route = new URL(request.url).pathname.match(pathPattern);
+    const url = new URL(request.url);
+    // Pi telemetry history in Tiger Data: the Cloudflare relay posts batches; the app reads per-minute history.
+    if (url.pathname === '/api/telemetry/ingest' || url.pathname === '/api/telemetry/history') {
+      if (!authorized(request, token)) return reply({ error: 'Unauthorized.' }, 401);
+      if (!store.ready) return reply({ error: 'Telemetry storage is not available.' }, 503);
+      if (url.pathname === '/api/telemetry/ingest') {
+        if (request.method !== 'POST') return reply({ error: 'Method not allowed.' }, 405);
+        let body;
+        try { body = await request.json(); } catch { return reply({ error: 'Expected JSON.' }, 400); }
+        const stored = await insertSamples(db, cleanSamples(body?.samples));
+        return reply({ stored });
+      }
+      if (request.method !== 'GET') return reply({ error: 'Method not allowed.' }, 405);
+      const minutes = Math.min(1440, Math.max(5, Number.parseInt(url.searchParams.get('minutes') ?? '60', 10) || 60));
+      return reply(await telemetryHistory(db, store, minutes));
+    }
+    const route = url.pathname.match(pathPattern);
     if (!route) return reply({ error: 'Route not found.' }, 404);
     if (!authorized(request, token)) return reply({ error: 'Unauthorized.' }, 401);
     const { id } = route.groups;

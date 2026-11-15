@@ -6,12 +6,33 @@ import { DurableObject } from 'cloudflare:workers';
 // sample. One Durable Object instance holds all sockets, so the Pi and viewers meet in one place.
 const MAX_MESSAGE = 2048;
 const FRESH_MS = 2000;
+const BATCH_SIZE = 40;   // samples per Tiger Data insert
+const BATCH_MS = 2000;   // or every 2 seconds, whichever comes first
 
 export class TelemetryRelay extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     this.last = null;
     this.lastAt = 0;
+    this.batch = [];
+    this.batchStarted = 0;
+  }
+
+  // Send buffered Pi samples to the mission API, which stores them in Tiger Data.
+  flush() {
+    const samples = this.batch.splice(0);
+    this.batchStarted = 0;
+    const { VULTR_ORIGIN, ORIGIN_TOKEN } = this.env;
+    if (!samples.length || !VULTR_ORIGIN || !ORIGIN_TOKEN) return;
+    const url = new URL(VULTR_ORIGIN);
+    url.pathname = '/api/telemetry/ingest';
+    url.search = '';
+    const sent = fetch(url, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${ORIGIN_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ samples }),
+    }).catch(() => { /* storage is best-effort; live relay keeps working */ });
+    this.ctx.waitUntil?.(sent);
   }
 
   async fetch(request) {
@@ -27,12 +48,16 @@ export class TelemetryRelay extends DurableObject {
   webSocketMessage(ws, message) {
     if (!this.ctx.getTags(ws).includes('pi')) return; // viewers are read-only
     if (typeof message !== 'string' || message.length > MAX_MESSAGE) return;
-    try { if (typeof JSON.parse(message) !== 'object') return; } catch { return; }
+    let sample;
+    try { sample = JSON.parse(message); if (!sample || typeof sample !== 'object') return; } catch { return; }
     this.last = message;
     this.lastAt = Date.now();
     for (const viewer of this.ctx.getWebSockets('viewer')) {
       try { viewer.send(message); } catch { /* viewer went away */ }
     }
+    this.batch.push(sample);
+    if (!this.batchStarted) this.batchStarted = Date.now();
+    if (this.batch.length >= BATCH_SIZE || Date.now() - this.batchStarted >= BATCH_MS) this.flush();
   }
 
   webSocketClose(ws, code) {
@@ -82,6 +107,8 @@ export default {
     const { pathname } = new URL(request.url);
     if (!pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
     if (pathname === '/api/telemetry/live' || pathname === '/api/telemetry/push') return telemetry(request, env, pathname);
+    // Only the relay itself may write telemetry history; it calls the API directly with the origin token.
+    if (pathname === '/api/telemetry/ingest') return Response.json({ error: 'Not found.' }, { status: 404 });
     try {
       const url = new URL(env.VULTR_ORIGIN);
       if (url.protocol !== 'https:' || !env.ORIGIN_TOKEN) throw Error();

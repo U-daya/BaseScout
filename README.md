@@ -129,7 +129,7 @@ The Pi pushes every sample to the public site, so anyone opening https://basesco
 |---|---|---|
 | Cloudflare Workers | Hosts the site and proxies `/api/*` to Vultr | `VULTR_ORIGIN`, `ORIGIN_TOKEN` Worker secrets |
 | Vultr | Runs the mission API (`server/`) | `server/.env` on the VM |
-| TigerData | PostgreSQL storage for mission reports | `DATABASE_URL` |
+| TigerData | PostgreSQL storage for mission reports, plus Pi telemetry history: the Cloudflare relay batches every sample into a TimescaleDB hypertable (compressed after 1 day, kept 30 days) and the app charts per-minute averages from a real-time continuous aggregate (`server/telemetryStore.js`) | `DATABASE_URL` |
 | Google Gemini | Two-sentence mission debrief on each saved report, with a rule-based fallback | `GEMINI_API_KEY`, optional `GEMINI_MODEL` |
 | Twilio | SMS alert with the result and report link, plus an optional "Mission Control" voice call that reads the go / no-go poll and debrief aloud (`TWILIO_VOICE=1`; can call from a Verified Caller ID, no Twilio number needed) | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM`, `TWILIO_TO`, `PUBLIC_URL` |
 

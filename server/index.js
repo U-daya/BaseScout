@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { missionApi } from './api.js';
 import { twilioConfig } from './notify.js';
+import { setupTelemetryStore } from './telemetryStore.js';
 
 const { DATABASE_URL, ORIGIN_TOKEN, GEMINI_API_KEY, GEMINI_MODEL = 'gemini-3.6-flash', HOST = '127.0.0.1', PORT = '8788' } = process.env;
 if (!DATABASE_URL) throw Error('Set DATABASE_URL in server/.env.');
@@ -11,7 +12,9 @@ const db = new pg.Pool({ connectionString: DATABASE_URL, max: 5, connectionTimeo
 db.on('error', error => console.error('Idle database connection failed', error.code));
 await db.query(await readFile(new URL('./schema.sql', import.meta.url), 'utf8'));
 const twilio = twilioConfig(process.env);
-const api = missionApi(db, ORIGIN_TOKEN, { apiKey: GEMINI_API_KEY, model: GEMINI_MODEL }, twilio);
+const store = await setupTelemetryStore(db);
+console.log(store.ready ? `Tiger Data telemetry store ready (hypertable${store.aggregate ? ' + per-minute continuous aggregate' : ''})` : 'Tiger Data telemetry store unavailable; history off');
+const api = missionApi(db, ORIGIN_TOKEN, { apiKey: GEMINI_API_KEY, model: GEMINI_MODEL }, twilio, store);
 console.log(twilio ? `Twilio enabled: ${[twilio.sms && 'SMS', twilio.call && 'Mission Control voice call'].filter(Boolean).join(' + ')}` : 'Twilio not configured; alerts off');
 console.log(GEMINI_API_KEY ? `Gemini debrief enabled (${GEMINI_MODEL})` : 'GEMINI_API_KEY not set; using rule-based debriefs');
 
@@ -21,7 +24,7 @@ createServer(async (incoming, outgoing) => {
     let size = 0;
     for await (const chunk of incoming.iterator({ destroyOnReturn: false })) {
       size += chunk.length;
-      if (size > 2048) {
+      if (size > 16384) { // telemetry batches from the relay are the largest requests
         outgoing.writeHead(413, { 'Content-Type': 'application/json', Connection: 'close' });
         outgoing.end(JSON.stringify({ error: 'Request too large.' }));
         return;
