@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Terrain3D from './Terrain3D';
+import MiniPlanet from './MiniPlanet';
 
 const root = import.meta.env.BASE_URL + 'terrain/';
 const metrics = [['relief','Relief','m','Elevation range across the window'],['median','Median slope','°','Median terrain slope'],['p90','Steep slope','°','90th percentile slope']];
@@ -55,7 +56,7 @@ export default function Terrain({ onContinue, targetId, onTarget }) {
       <p>Pick a permanent base target on the Moon or Mars. BaseScout ranks {earth.length} real Earth analog sites against it, using 25 × 25 km elevation windows on a common 500 m grid from NASA and SRTM data.</p></div>
     <div className="target-picker" role="tablist" aria-label="Base target">
       {targets.map(t => <button key={t.id} type="button" role="tab" aria-selected={t.id === target.id} onClick={() => onTarget?.(t.id)}>
-        <i className={`mini-planet ${t.planet.toLowerCase()}`} aria-hidden="true"/><span>{t.planet}</span><b>{short(t.name)}</b>
+        <MiniPlanet kind={t.planet.toLowerCase()}/><span>{t.planet}</span><b>{short(t.name)}</b>
       </button>)}
     </div>
     {target.note && <p className="target-note">{target.note}</p>}

@@ -49,7 +49,9 @@ pGeo.setAttribute('position', new THREE.BufferAttribute(pSphere, 3)); pGeo.setAt
 pT.forEach((arr, t) => { pGeo.setAttribute('aT' + t, new THREE.BufferAttribute(arr, 3)); pGeo.setAttribute('aH' + t, new THREE.BufferAttribute(pH[t], 1)); });
 const VERT = [
   'attribute vec3 aT0;attribute vec3 aT1;attribute vec3 aT2;attribute vec3 aT3;attribute float aH0;attribute float aH1;attribute float aH2;attribute float aH3;attribute float aSeed;',
-  'uniform float uA;uniform float uB;uniform float uC;uniform float uD;uniform float uTime;uniform float uPx;uniform float uFade;varying vec3 vCol;varying float vAlpha;',
+  'uniform float uA;uniform float uB;uniform float uC;uniform float uD;uniform float uTime;uniform float uPx;uniform float uFade;varying vec3 vCol;varying float vAlpha;uniform vec4 uMask0;uniform vec4 uMask1;uniform float uFeather;uniform float uGap;uniform vec2 uRes;',
+  // Push particles sideways out of a text card's screen box (px, y up), squeezing them into a band beside it.
+  'vec2 part(vec2 q,vec4 m,inout float dim){float D=(m.z-m.x)*.5;if(D<=0.)return q;float dy=max(m.y-q.y,q.y-m.w);float wy=1.-smoothstep(0.,uFeather,dy);if(wy<=0.)return q;bool l=q.x<(m.x+m.z)*.5;float s=l?m.x-q.x:q.x-m.z;if(s>=uFeather)return q;float k=(uFeather-uGap)/(D+uFeather);float s2=uGap+(s+D)*k;float sf=mix(s,s2,wy);dim*=mix(1.,min(1.,k*2.2),wy);q.x=l?m.x-sf:m.z+sf;return q;}',
   'float ease(float t){return t<.5?4.*t*t*t:1.-pow(-2.*t+2.,3.)/2.;}',
   'float stage(float u){return ease(clamp(u*1.35-aSeed*.35,0.,1.));}',
   'void main(){float a=stage(uA),b=stage(uB),c=stage(uC),d=stage(uD);',
@@ -59,10 +61,9 @@ const VERT = [
   'vec3 mars=mix(vec3(.45,.16,.09),vec3(1.,.62,.38),mix(.55+.45*sin(aSeed*12.),aH0,a));',
   'vec3 askja=mix(vec3(.32,.31,.33),vec3(.86,.82,.76),aH1);vec3 moon=mix(vec3(.28,.28,.3),vec3(.92,.92,.95),aH2);vec3 kea=mix(vec3(.42,.2,.14),vec3(1.,.74,.56),aH3);',
   'vec3 col=mix(mars,askja,b);col=mix(col,moon,c);col=mix(col,kea,d);vCol=col;',
-  'vec4 mv=modelViewMatrix*vec4(p,1.);gl_Position=projectionMatrix*mv;gl_PointSize=uPx*(1.6+aSeed*1.6)*(26./-mv.z);vAlpha=(.55+.45*aSeed)*uFade;}'].join('\n');
-// uMask0/uMask1: on-screen boxes of the visible text cards (device px, y up). Particles fade out inside them.
-const FRAG = 'varying vec3 vCol;varying float vAlpha;uniform vec4 uMask0;uniform vec4 uMask1;uniform float uFeather;float outside(vec4 m){vec2 p=gl_FragCoord.xy;float d=max(max(m.x-p.x,p.x-m.z),max(m.y-p.y,p.y-m.w));return smoothstep(0.,uFeather,d);}void main(){vec2 d=gl_PointCoord-.5;float r=dot(d,d);if(r>.25)discard;float k=outside(uMask0)*outside(uMask1);if(k<.01)discard;gl_FragColor=vec4(vCol,vAlpha*k*(1.-r*3.2));}';
-const pMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uA: { value: 0 }, uB: { value: 0 }, uC: { value: 0 }, uD: { value: 0 }, uTime: { value: 0 }, uPx: { value: 1 }, uFade: { value: 1 }, uMask0: { value: new THREE.Vector4(-9, -9, -9, -9) }, uMask1: { value: new THREE.Vector4(-9, -9, -9, -9) }, uFeather: { value: 60 } }, vertexShader: VERT, fragmentShader: FRAG });
+  'vec4 mv=modelViewMatrix*vec4(p,1.);gl_Position=projectionMatrix*mv;gl_PointSize=uPx*(1.6+aSeed*1.6)*(26./-mv.z);vAlpha=(.55+.45*aSeed)*uFade;if(gl_Position.w>0.){vec2 q=(gl_Position.xy/gl_Position.w*.5+.5)*uRes;float dim=1.;q=part(q,uMask0,dim);q=part(q,uMask1,dim);gl_Position.xy=(q/uRes*2.-1.)*gl_Position.w;vAlpha*=dim;}}'].join('\n');
+const FRAG = 'varying vec3 vCol;varying float vAlpha;void main(){vec2 d=gl_PointCoord-.5;float r=dot(d,d);if(r>.25)discard;gl_FragColor=vec4(vCol,vAlpha*(1.-r*3.2));}';
+const pMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uA: { value: 0 }, uB: { value: 0 }, uC: { value: 0 }, uD: { value: 0 }, uTime: { value: 0 }, uPx: { value: 1 }, uFade: { value: 1 }, uMask0: { value: new THREE.Vector4(-9, -9, -9, -9) }, uMask1: { value: new THREE.Vector4(-9, -9, -9, -9) }, uFeather: { value: 110 }, uGap: { value: 14 }, uRes: { value: new THREE.Vector2(1, 1) } }, vertexShader: VERT, fragmentShader: FRAG });
 const planet = new THREE.Points(pGeo, pMat); scene.add(planet);
 const starGeo = new THREE.BufferGeometry(), starPos = new Float32Array(4000 * 3); for (let i = 0; i < 4000; i++) { const v = new THREE.Vector3().randomDirection().multiplyScalar(140 + Math.random() * 120); starPos.set([v.x, v.y, v.z], i * 3); }
 starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3)); const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 1.2, sizeAttenuation: false, transparent: true, opacity: .6 })); scene.add(stars);
@@ -160,16 +161,16 @@ const secs = [...document.querySelectorAll('section')]; const io = new Intersect
 let target = 0, T = 0; const sc = () => { const m = document.documentElement.scrollHeight - innerHeight; target = m > 0 ? scrollY / m : 0; }; addEventListener('scroll', sc, { passive: true }); sc();
 let mx = 0, my = 0; addEventListener('pointermove', e => { mx = e.clientX / innerWidth - .5; my = e.clientY / innerHeight - .5; });
 const prog = document.getElementById('prog'); const names = ['Moon and Mars', 'Jezero', 'Askja', 'Shackleton', 'Mauna Kea', 'Rover', 'Mobility', 'Power', 'Navigation', 'Systems', 'Touchdown'];
-// Keep particles out from behind text: mask the boxes of the cards currently on screen.
+// Keep particles out from behind text: they part around the boxes of the cards currently on screen.
 const cards = [...document.querySelectorAll('section .card')];
 const NONE = [-9, -9, -9, -9];
 function updateTextMask() {
-  const dpr = renderer.getPixelRatio(), pad = 6, H = innerHeight;
+  const dpr = renderer.getPixelRatio(), pad = 18, lead = 80, H = innerHeight;
   const boxes = cards.map(c => c.getBoundingClientRect()).filter(r => r.bottom > 0 && r.top < H && r.width > 0)
     .sort((a, b) => Math.abs(a.top + a.height / 2 - H / 2) - Math.abs(b.top + b.height / 2 - H / 2)).slice(0, 2)
-    .map(r => [(r.left - pad) * dpr, (H - r.bottom - pad) * dpr, (r.right + pad) * dpr, (H - r.top + pad) * dpr]);
+    .map(r => [(r.left - pad) * dpr, (H - r.bottom - lead) * dpr, (r.right + pad) * dpr, (H - r.top + lead) * dpr]);
   pMat.uniforms.uMask0.value.set(...(boxes[0] ?? NONE)); pMat.uniforms.uMask1.value.set(...(boxes[1] ?? NONE));
-  pMat.uniforms.uFeather.value = 130 * dpr;
+  pMat.uniforms.uFeather.value = 110 * dpr; pMat.uniforms.uGap.value = 14 * dpr; pMat.uniforms.uRes.value.set(innerWidth * dpr, innerHeight * dpr);
 }
 const clock = new THREE.Clock(); const v = new THREE.Vector3(); let landedAt = -1;
 renderer.setAnimationLoop(() => {
