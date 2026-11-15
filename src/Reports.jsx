@@ -51,6 +51,14 @@ function AskMissionControl({ id }) {
   const [history, setHistory] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [enabled, setEnabled] = useState(false);
+  // Show the panel only when the server has a Grok key (older servers answer 405, so it stays hidden).
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`/api/missions/${encodeURIComponent(id)}/ask`, { signal: controller.signal })
+      .then(r => r.ok ? r.json() : null).then(body => setEnabled(body?.enabled === true)).catch(() => {});
+    return () => controller.abort();
+  }, [id]);
   async function ask(text) {
     const q = text.trim();
     if (q.length < 3 || busy) return;
@@ -65,6 +73,7 @@ function AskMissionControl({ id }) {
     } catch (failure) { setError(failure.message); }
     finally { setBusy(false); }
   }
+  if (!enabled) return null;
   return <section className="panel ask-mc">
     <div className="panel-head"><h2>Ask Mission Control</h2><span className="muted">Answered by Grok (xAI) from this report</span></div>
     {history.map((item, i) => <div className="ask-turn" key={i}><p className="ask-q">{item.q}</p><p className="ask-a">{item.a}</p></div>)}

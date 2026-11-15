@@ -43,6 +43,8 @@ export function missionApi(db, token, gemini = {}, twilio = null, grok = {}) {
     const { id, ask } = route.groups;
     // Ask Mission Control: Grok answers a question about one saved report. Nothing is stored.
     if (ask) {
+      // GET tells the report page whether to show the panel at all.
+      if (request.method === 'GET') return reply({ enabled: !!grok.apiKey });
       if (request.method !== 'POST') return reply({ error: 'Method not allowed.' }, 405);
       if (!grok.apiKey) return reply({ error: 'Ask Mission Control is not configured.' }, 503);
       let question;
