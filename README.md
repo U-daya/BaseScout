@@ -56,11 +56,11 @@ The Pi 5 runs [`pi/telemetry.py`](pi/telemetry.py), a WebSocket server on port 8
 | Grove Base Hat for Raspberry Pi (ADC) | I²C `0x04` | — |
 | Thumb Joystick | Hat port **A0** (channel 0 = X, 1 = Y) | `joystick_x`, `joystick_y` (−1…+1, centre calibrated at startup) |
 | Light Sensor | Hat port **A2** | `light` (raw 12-bit ADC, 0–4095) |
-| Air Quality Sensor | Hat port **A4** | `air_quality` (raw 12-bit ADC, 0–4095) |
+| Air Quality Sensor | Hat port **A6** | `air_quality` (raw 12-bit ADC, 0–4095) |
 | High Precision Barometer (DPS310) | I²C `0x77` | `temp_c` (°C), `pressure_hpa` (hPa) |
 | LCD RGB Backlight | I²C `0x3e` / `0x62` | not used yet |
 
-There is no UV sensor, so `uv` is always `null`. `i2cdetect -y -a 1` should list `04` and `77`. Plain `i2cdetect -y 1` skips addresses below `08`, which hides the Hat.
+If you move a sensor to another port, set `JOY_X_CH`, `JOY_Y_CH`, `LIGHT_CH`, or `AIR_CH` (port A0 = channels 0/1, A2 = 2/3, A4 = 4/5, A6 = 6/7). To read all eight channels at once: `python3 -c 'from smbus2 import SMBus; b=SMBus(1); print([b.read_word_data(4, 0x10+c) for c in range(8)])'`. Unconnected channels float around 1300–2300. There is no UV sensor, so `uv` is always `null`. `i2cdetect -y -a 1` should list `04` and `77`. Plain `i2cdetect -y 1` skips addresses below `08`, which hides the Hat.
 
 **Run it on the Pi:**
 

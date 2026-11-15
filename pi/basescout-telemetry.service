@@ -11,6 +11,7 @@ Wants=network-online.target
 
 [Service]
 User=udaya
+Environment=PYTHONUNBUFFERED=1
 WorkingDirectory=/home/udaya/BaseScout
 ExecStart=/usr/bin/python3 /home/udaya/BaseScout/pi/telemetry.py
 Restart=on-failure

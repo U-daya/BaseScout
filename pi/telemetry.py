@@ -10,7 +10,7 @@ Hardware (Seeed Grove):
   - Grove Base Hat for Raspberry Pi  (ADC at I2C 0x04)
       A0 -> Grove Thumb Joystick   (channel 0 = X, channel 1 = Y)
       A2 -> Grove Light Sensor     (raw 12-bit ADC value)
-      A4 -> Grove Air Quality      (raw 12-bit ADC value)
+      A6 -> Grove Air Quality      (raw 12-bit ADC value)
   - Grove High Precision Barometer DPS310 (I2C 0x77) -> temp_c, pressure_hpa
 
 Missing or failing sensors are sent as null. Leave the joystick untouched for the
@@ -30,9 +30,11 @@ from websockets.asyncio.server import serve
 
 HAT_ADDR = int(os.environ.get("HAT_ADDR", "0x04"), 16)
 DPS_ADDR = int(os.environ.get("DPS_ADDR", "0x77"), 16)
-JOY_X, JOY_Y = 0, 1
-LIGHT = 2
-AIR = 4
+# Hat analog channels: port A0 = ch0/1, A2 = ch2/3, A4 = ch4/5, A6 = ch6/7. Override with env vars.
+JOY_X = int(os.environ.get("JOY_X_CH", "0"))
+JOY_Y = int(os.environ.get("JOY_Y_CH", "1"))
+LIGHT = int(os.environ.get("LIGHT_CH", "2"))
+AIR = int(os.environ.get("AIR_CH", "6"))
 PORT = int(os.environ.get("TELEMETRY_PORT", "8765"))
 RATE_HZ = float(os.environ.get("TELEMETRY_HZ", "15"))
 
