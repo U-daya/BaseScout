@@ -42,6 +42,10 @@ Knowwhere finds the places on Earth whose terrain best matches where we plan to 
 
 A Raspberry Pi 5 field kit (Grove Base Hat with joystick, light and air-quality sensors, a DPS310 barometer, and an RGB LCD used as a status light) drives the rover and streams live readings to the public website from any network, through a Cloudflare Durable Object relay at about 14 samples per second. Readings at save time are stored in the mission report.
 
+### SMS alerts
+
+When a mission is saved, the Vultr API sends a Twilio SMS with the result and a link to the report, for example: "Knowwhere mission saved: Pad A soil 42, Pad B soil 18. Recommend Pad A. https://knowwhere.nyc/app?mission=…". The feature is built and was tested end to end on a Twilio trial account. Trial accounts only allow Twilio's pre-defined template text to verified numbers, so during judging the alert arrives as that template. The full custom message is sent automatically once the account is upgraded and US A2P 10DLC registration is approved, with no code change.
+
 ### Benefits and intended impact
 
 Analog sites are expensive to reach and choose. Knowwhere gives mission planners, educators and students a transparent, reproducible way to pick the Earth site that best stands in for a specific Moon or Mars base location, and to rehearse the site-selection steps before anyone travels there.
