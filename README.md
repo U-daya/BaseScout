@@ -131,7 +131,7 @@ The Pi pushes every sample to the public site, so anyone opening https://basesco
 | Vultr | Runs the mission API (`server/`) | `server/.env` on the VM |
 | TigerData | PostgreSQL storage for mission reports | `DATABASE_URL` |
 | Google Gemini | Two-sentence mission debrief on each saved report, with a rule-based fallback | `GEMINI_API_KEY`, optional `GEMINI_MODEL` |
-| Twilio | SMS alert with the result and report link when a mission is saved (optional, off unless all four are set) | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM`, `TWILIO_TO`, `PUBLIC_URL` |
+| Twilio | SMS alert with the result and report link, plus an optional "Mission Control" voice call that reads the go / no-go poll and debrief aloud (`TWILIO_VOICE=1`; can call from a Verified Caller ID, no Twilio number needed) | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM`, `TWILIO_TO`, `PUBLIC_URL` |
 
 All of these are server-side secrets in `server/.env` (git-ignored). Never prefix them with `VITE_`. On startup, `npm run api` prints whether Gemini and Twilio are enabled. Twilio trial accounts can only text verified numbers.
 

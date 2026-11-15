@@ -12,7 +12,7 @@ db.on('error', error => console.error('Idle database connection failed', error.c
 await db.query(await readFile(new URL('./schema.sql', import.meta.url), 'utf8'));
 const twilio = twilioConfig(process.env);
 const api = missionApi(db, ORIGIN_TOKEN, { apiKey: GEMINI_API_KEY, model: GEMINI_MODEL }, twilio);
-console.log(twilio ? 'Twilio SMS alerts enabled' : 'Twilio not configured; SMS alerts off');
+console.log(twilio ? `Twilio enabled: ${[twilio.sms && 'SMS', twilio.call && 'Mission Control voice call'].filter(Boolean).join(' + ')}` : 'Twilio not configured; alerts off');
 console.log(GEMINI_API_KEY ? `Gemini debrief enabled (${GEMINI_MODEL})` : 'GEMINI_API_KEY not set; using rule-based debriefs');
 
 createServer(async (incoming, outgoing) => {
