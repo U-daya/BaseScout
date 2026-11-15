@@ -4,6 +4,7 @@ import Scene, { parseTune } from './Scene';
 import ModelTuner, { ModelStatus } from './ModelTuner';
 import Terrain, { rankSites } from './Terrain';
 import Telemetry from './Telemetry';
+import MiniPlanet from './MiniPlanet';
 import { SaveMission, MissionReport } from './Reports';
 import { padsFor, slopeLimit, testPad, newMission, padIds, defaultSite, siteIds, siteName, baseTargets, defaultTarget } from './mission';
 
@@ -113,6 +114,13 @@ function App() {
   }
   useEffect(() => () => clearTimeout(sampleTimer.current), []);
   function changeSite(id) { if (id === site) return; setSite(id); reset(); }
+  // Switching the Moon/Mars target on step 2 also moves the rehearsal to that target's best Earth twin.
+  function chooseTarget(id) {
+    if (id === targetId) return;
+    setTargetId(id);
+    const best = rankSites(sites, id).find(s => siteIds.includes(s.id));
+    if (best) changeSite(best.id);
+  }
   const goMission = (id, tgt) => { if (tgt) setTargetId(tgt); if (id) changeSite(id); setTab('mission'); window.scrollTo({ top:0, behavior:'smooth' }); };
   const onModelStatus = useCallback(s => setModelStatus(s), []);
   function loadFile(file) {
@@ -137,6 +145,11 @@ function App() {
         <div className="mission-head">
           <div className="intro"><p className="eyebrow">STEP 2 · LANDING REHEARSAL</p><h1>Pick the landing pad</h1>
             <p>Rehearsing <b>{target.name}</b> ({target.planet}) at <b>{siteName(site)}</b>. Drive to a pad, sample its soil, choose the base site.</p></div>
+          <div className="target-picker compact" role="tablist" aria-label="Moon or Mars base target">
+            {Object.entries(baseTargets).map(([id, t]) => <button key={id} type="button" role="tab" aria-selected={id === targetId} disabled={sampling} onClick={() => chooseTarget(id)}>
+              <MiniPlanet kind={t.planet.toLowerCase()} size={22}/><span>{t.planet}</span><b>{t.name.replace(' crater rim', '')}</b>
+            </button>)}
+          </div>
         </div>
         <div className="site-chips-wrap">
           <span className="site-chips-label">Earth test site<small>{ranked.length ? ` · closest match to ${target.name} first` : ''}</small></span>
