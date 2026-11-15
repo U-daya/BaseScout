@@ -1,0 +1,38 @@
+[
+  {
+    "id": "jezero",
+    "name": "Jezero Crater",
+    "planet": "Mars",
+    "lat": 18.45,
+    "lon": 77.45,
+    "source": "NASA MGS / MOLA MEGDR",
+    "url": "https://pds-geosciences.wustl.edu/mgs/mgs-m-mola-5-megdr-l3-v1/mgsl_300x/meg128/megt44n000hb.img",
+    "relief": 1140.7,
+    "median": 1.37,
+    "p90": 7.57
+  },
+  {
+    "id": "utah",
+    "name": "Hanksville, Utah",
+    "planet": "Earth",
+    "lat": 38.4,
+    "lon": -110.7,
+    "source": "Mapzen Skadi elevation",
+    "url": "https://s3.amazonaws.com/elevation-tiles-prod/skadi/N38/N38W111.hgt.gz",
+    "relief": 337.6,
+    "median": 1.55,
+    "p90": 3.32
+  },
+  {
+    "id": "atacama",
+    "name": "Atacama Desert, Chile",
+    "planet": "Earth",
+    "lat": -23.62,
+    "lon": -68.35,
+    "source": "Mapzen Skadi elevation",
+    "url": "https://s3.amazonaws.com/elevation-tiles-prod/skadi/S24/S24W069.hgt.gz",
+    "relief": 635.7,
+    "median": 0.04,
+    "p90": 4.33
+  }
+]

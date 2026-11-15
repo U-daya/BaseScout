@@ -1,0 +1,22 @@
+{
+  "name": "basescout",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview",
+    "api": "node --env-file-if-exists=server/.env server/index.js"
+  },
+  "type": "module",
+  "dependencies": {
+    "pg": "^8.23.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "three": "^0.187.0"
+  },
+  "private": "true",
+  "devDependencies": {
+    "vite": "^8.3.8"
+  }
+}
