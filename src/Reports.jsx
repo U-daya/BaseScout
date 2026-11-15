@@ -52,6 +52,11 @@ export function MissionReport({ id }) {
         <strong>{report.recommendation ? `Recommend Pad ${report.recommendation}` : 'Neither pad qualifies'}</strong>
         <p>Simulated slope and soil tests · demo slope limit ≤ {report.slopeLimit}°</p>
         <ol>{report.tests.map(test => <li key={test.pad}>Pad {test.pad} · {test.slope}° slope · soil {test.soil}</li>)}</ol>
+        {report.debrief?.text && <div className="debrief">
+          <h2>Mission debrief</h2>
+          <p>{report.debrief.text}</p>
+          <span className="muted">{report.debrief.source === 'gemini' ? 'Written by Gemini from the simulated results' : 'Generated from the mission rules'}</span>
+        </div>}
         <p>Saved <time dateTime={record.created_at}>{new Date(record.created_at).toLocaleString()}</time></p>
       </>}
     </section>

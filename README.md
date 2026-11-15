@@ -31,6 +31,34 @@ Public repo: <https://github.com/U-daya/BaseScout>. Clone it with `git clone htt
 - [ ] **Connect the Pi.** Put the laptop and Pi on the same demo network. Have Vidhyuth run the WebSocket server on a laptop-reachable interface with the path `/telemetry`. Enter the Pi IP and agreed port in **Live Earth demo telemetry**, for example `ws://192.168.1.50:8765/telemetry`. Use `wss://` if hosting the app over HTTPS. Keyboard input overrides the joystick while a drive key is held. Verify the status changes to disconnected when the socket closes and check that the keyboard still works.
 - [ ] **Finish next.** Confirm the Pi stream and units below. Check the rover model orientation and framing on the demo laptop. Keep the bundled terrain and keyboard-only route available for presentation.
 
+## Pi demo setup (read before connecting the joystick)
+
+The public site is served over `https://`. Browsers block a page like that from opening a plain `ws://` connection, so **the public URL cannot reach `ws://<PI-IP>:8765/telemetry`**. The telemetry panel shows a warning when this happens. Pick one option:
+
+- **Option A (simplest, recommended for the demo):** run the app on the demo laptop, on the same Wi-Fi as the Pi.
+
+  ```bash
+  npm ci
+  npm run dev
+  ```
+
+  Open `http://127.0.0.1:5173`, enter `ws://<PI-IP>:8765/telemetry`, and click **Connect**. Saved missions also work locally if `npm run api` is running with `server/.env` filled in.
+- **Option B:** give the Pi a `wss://` address, for example with a Cloudflare Tunnel on the Pi that points at `localhost:8765`, then enter `wss://<tunnel-host>/telemetry` on the public site. This adds latency to joystick driving.
+
+**Joystick check:** after connecting, the **Joystick check** box in the telemetry panel shows a live dot. Push the stick forward and the dot should move up. Push it right and the dot should move right. If either is backwards, tick **Invert X** or **Invert Y**. The setting is saved in that browser. The box also shows the packet rate in Hz (target 10–20 Hz). The header chip shows the Pi status from any screen. Click it to jump to the panel.
+
+## Sponsor integrations
+
+| Service | Role | Config |
+|---|---|---|
+| Cloudflare Workers | Hosts the site and proxies `/api/*` to Vultr | `VULTR_ORIGIN`, `ORIGIN_TOKEN` Worker secrets |
+| Vultr | Runs the mission API (`server/`) | `server/.env` on the VM |
+| TigerData | PostgreSQL storage for mission reports | `DATABASE_URL` |
+| Google Gemini | Two-sentence mission debrief on each saved report, with a rule-based fallback | `GEMINI_API_KEY`, optional `GEMINI_MODEL` |
+| Twilio | SMS alert with the result and report link when a mission is saved (optional, off unless all four are set) | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM`, `TWILIO_TO`, `PUBLIC_URL` |
+
+All of these are server-side secrets in `server/.env` (git-ignored). Never prefix them with `VITE_`. On startup, `npm run api` prints whether Gemini and Twilio are enabled. Twilio trial accounts can only text verified numbers.
+
 ## Pi contract to confirm with Vidhyuth
 
 Please confirm the host, port, update rate, and sensors for the Pi 5 endpoint. Send a JSON text message per sample on `/telemetry`, with an ISO 8601 timestamp, numeric readings, and `null` for missing values. Can you confirm whether UV is an index or irradiance, whether light is lux or raw counts, and what quantity and units air quality represents? The app expects temperature in °C and pressure in hPa. Joystick axes should be normalized to −1 through +1, centered at zero, with positive X right and positive Y forward. Please confirm both directions on hardware.
@@ -44,6 +72,16 @@ A 10–20 Hz stream is a starting point for responsive driving. The client appli
 ## Rover model swap
 
 Ask Dhruv and Naman for a self-contained `rover.glb` converted from their SolidWorks assembly. Use Y-up and orient the nose toward −Z. Put the file at `public/models/rover.glb`, copy `.env.example` to `.env.local`, uncomment `VITE_ROVER_MODEL_URL`, and restart Vite. The loader centers and scales the model horizontally and sits it on the ground. A missing or failed export leaves the primitive rover visible.
+
+**Fast path when the file arrives:** on the mission screen, click **Rover model…** under the field and pick the `.glb` with **Try a .glb from this computer**. No restart is needed. Use the sliders to fix size, tilt, heading, roll, and lift. SolidWorks exports are often Z-up, so try **Tilt −90°** first. Turn the nose with **Heading** until it points up the field. Click **Copy** and paste the `VITE_ROVER_MODEL_TUNE=…` line into `.env.local` next to `VITE_ROVER_MODEL_URL`, then restart `npm run dev` to keep it.
+
+**Large exports:** SolidWorks GLBs are often tens of MB. Compress before committing. The app already includes the Meshopt decoder.
+
+```bash
+npx @gltf-transform/cli optimize rover.glb public/models/rover.glb --compress meshopt --texture-compress webp
+```
+
+The model panel shows mesh and triangle counts and warns above 500k triangles.
 
 ## Terrain data and reproducibility
 
