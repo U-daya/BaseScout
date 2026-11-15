@@ -36,14 +36,22 @@ async function geminiDebrief(report, apiKey, model) {
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: prompt(report) }] }],
-      generationConfig: { temperature: 0.4, maxOutputTokens: 200 },
+      // Newer Gemini models spend part of this budget on internal reasoning before writing,
+      // so a small limit can cut the answer off mid-sentence. Keep it generous.
+      generationConfig: { temperature: 0.4, maxOutputTokens: 2048 },
     }),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   if (!response.ok) throw Error(`Gemini HTTP ${response.status}`);
   const body = await response.json();
-  const text = body?.candidates?.[0]?.content?.parts?.map(part => part.text ?? '').join('').trim();
-  if (!text) throw Error('Gemini returned no text');
+  const candidate = body?.candidates?.[0];
+  const finish = candidate?.finishReason;
+  if (finish && finish !== 'STOP') throw Error(`Gemini stopped early (${finish})`);
+  const text = candidate?.content?.parts
+    ?.filter(part => !part.thought)
+    .map(part => part.text ?? '').join('').trim();
+  // Reject fragments so a cut-off reply never reaches a saved report.
+  if (!text || text.length < 40 || !/[.!?]["')\]]?$/.test(text)) throw Error('Gemini returned an incomplete debrief');
   return text.length > MAX_CHARS ? `${text.slice(0, MAX_CHARS - 1).trimEnd()}…` : text;
 }
 
