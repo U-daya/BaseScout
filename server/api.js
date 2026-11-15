@@ -67,7 +67,9 @@ export function missionApi(db, token, gemini = {}, twilio = null) {
     if (telemetry) report.telemetry = telemetry;
     await db.query('INSERT INTO missions (id, report) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING', [data.id, report]);
     const { rows: [saved] } = await db.query('SELECT id, created_at, report FROM missions WHERE id = $1', [data.id]);
-    if (JSON.stringify(saved.report.tests) !== JSON.stringify(report.tests)) return reply({ error: 'This mission ID already has a different result.' }, 409);
+    // jsonb reorders object keys, so compare the test fields explicitly rather than JSON text.
+    const testKey = tests => JSON.stringify((tests ?? []).map(t => [t.pad, t.slope, t.soil]));
+    if (testKey(saved.report.tests) !== testKey(report.tests)) return reply({ error: 'This mission ID already has a different result.' }, 409);
     if (!existing) sendMissionAlert(saved, twilio); // fire-and-forget; never delays or fails the save
     return reply(saved, 201);
   };
