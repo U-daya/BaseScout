@@ -58,6 +58,25 @@ async function telemetry(request, env, pathname) {
   return relay.fetch(new Request('https://relay/?role=pi', request));
 }
 
+// Older API servers compared saved tests as JSON text, which Postgres jsonb reorders, so every new
+// save came back 409 although it was stored. Confirm the stored mission matches the request instead.
+async function confirmSaved(conflict, body, url, headers) {
+  try {
+    const sent = JSON.parse(body);
+    const soils = { A: sent.padASoil, B: sent.padBSoil };
+    url.pathname = `/api/missions/${encodeURIComponent(sent.id)}`;
+    const stored = await fetch(url, { headers: { Authorization: headers.get('Authorization') } });
+    if (!stored.ok) return conflict;
+    const saved = await stored.json();
+    const tests = saved?.report?.tests ?? [];
+    const matches = saved.report.siteId === sent.siteId && Array.isArray(sent.order)
+      && tests.length === sent.order.length && tests.every((t, i) => t.pad === sent.order[i] && t.soil === soils[t.pad]);
+    return matches ? Response.json(saved, { status: 201, headers: { 'Cache-Control': 'no-store' } }) : conflict;
+  } catch {
+    return conflict;
+  }
+}
+
 export default {
   async fetch(request, env) {
     const { pathname } = new URL(request.url);
@@ -71,12 +90,10 @@ export default {
       const headers = new Headers({ Authorization: `Bearer ${env.ORIGIN_TOKEN}` });
       const contentType = request.headers.get('Content-Type');
       if (contentType) headers.set('Content-Type', contentType);
-      return await fetch(url, {
-        method: request.method,
-        headers,
-        body: request.body,
-        redirect: 'manual',
-      });
+      const isSave = request.method === 'POST' && pathname === '/api/missions';
+      const body = isSave ? await request.text() : request.body;
+      const response = await fetch(url, { method: request.method, headers, body, redirect: 'manual' });
+      return isSave && response.status === 409 ? await confirmSaved(response, body, url, headers) : response;
     } catch {
       return Response.json({ error: 'Mission API unavailable. Retry shortly.' },
         { status: 503, headers: { 'Cache-Control': 'no-store' } });
