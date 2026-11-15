@@ -170,7 +170,7 @@ With NumPy, SciPy, and Pillow installed, run `python scripts/build_terrain.py me
 
 ## Mission reports and deployment
 
-**Save mission** appears after the rover has a recommendation. The API reconstructs the simulated test sequence from the Pad A result and saves an immutable report. The resulting `/?mission=<id>` link can be opened in another browser. Share links are public to anyone with the URL and contain only the simulated mission data.
+**Save mission** appears after the rover has a recommendation. The API reconstructs the simulated test sequence from the Pad A result and saves an immutable report. The resulting `/app?mission=<id>` link (old `/?mission=` links redirect) can be opened in another browser. Share links are public to anyone with the URL and contain only the simulated mission data.
 
 ### Test locally
 
@@ -200,3 +200,15 @@ With NumPy, SciPy, and Pillow installed, run `python scripts/build_terrain.py me
    ```
 
 4. On the public Cloudflare URL, finish a mission and save it. Open its report link on a second device. The Worker forwards only the API paths to Vultr over HTTPS. The website assets remain hosted on Cloudflare.
+
+## Site layout and landing page
+
+- `/` is the scroll-driven landing page (`index.html`, `src/landing.js`). It morphs real elevation data from Jezero, Askja, Shackleton and Mauna Kea, then shows the Perseverance model.
+- `/app` is the mission app (`app.html`, `src/App.jsx`). `/app?view=mission` opens straight on the rover mission, and `/app?mission=<id>` opens a saved report.
+- The Worker serves both pages as static assets; only `/api/*` runs the Worker first.
+
+## References and credits
+
+- Perseverance rover 3D model: NASA/JPL-Caltech, from NASA 3D Resources, compressed with gltf-transform (meshopt + WebP).
+- Lighting HDRI "Goegap": Poly Haven, CC0 (https://polyhaven.com/a/goegap).
+- Mars terrain: NASA MGS MOLA MEGDR. Moon terrain: NASA LRO LOLA LDEM_80S_80M. Earth terrain: SRTM via Mapzen Terrain Tiles (AWS Open Data).

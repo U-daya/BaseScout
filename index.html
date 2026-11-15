@@ -1,2 +1,63 @@
 <!doctype html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>BaseScout</title></head><body><div id="root"></div><script type="module" src="/src/App.jsx"></script></body></html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BaseScout</title>
+<meta name="description" content="Find the Earth twins of Moon and Mars base sites with real NASA elevation data, then rehearse the rover scouting mission there.">
+<script>if (new URLSearchParams(location.search).has("mission")) location.replace("/app" + location.search);</script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#08080a;--ink:#f6f1ea;--body:#d9d1c7;--muted:#a59b92;--accent:#ffb470;--accent-2:#ffd7ad;--line:rgba(255,255,255,.16);--mono:'IBM Plex Mono',monospace;--display:'Inter Tight','Inter',system-ui,sans-serif}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+canvas#gl{position:fixed;inset:0;width:100vw;height:100vh;display:block}
+.top{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:22px 28px;z-index:5;font:500 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.brand{display:flex;gap:10px;align-items:center;font:600 15px var(--display);letter-spacing:-.01em;text-transform:none;color:var(--ink)}
+.brand svg{width:18px;height:18px;fill:none;stroke:var(--accent);stroke-width:1.4}
+#labels{position:fixed;inset:0;z-index:3;pointer-events:none}
+#labels svg{position:absolute;inset:0;width:100%;height:100%}
+.callout{position:absolute;font:500 11px/1.45 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink);white-space:nowrap;transition:opacity .35s;opacity:0}
+.callout b{display:block;color:var(--accent);font-weight:500}
+main{position:relative;z-index:4}
+section{height:115vh;display:flex;align-items:center;padding:0 7vw;pointer-events:none}
+section .card{max-width:min(420px,36vw);pointer-events:auto;opacity:0;transform:translateY(28px);transition:opacity .8s cubic-bezier(.2,.7,.2,1),transform .8s cubic-bezier(.2,.7,.2,1)}
+section.on .card,main section:first-child .card{opacity:1;transform:none}
+section.r{justify-content:flex-end}
+section.c{justify-content:center;text-align:center}section.c .card{max-width:640px}
+.stat{display:flex;gap:34px;margin-top:22px;font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}.stat b{display:block;font:500 34px/1 var(--mono);color:var(--ink);letter-spacing:-.04em;color:var(--ink);margin-top:8px}
+.place{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:5;font:500 11px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);transition:opacity .4s}.place b{color:var(--accent);font-weight:500}
+.eyebrow{font:500 11px var(--mono);letter-spacing:.2em;color:var(--accent);text-transform:uppercase}
+h1{font:700 clamp(46px,7.4vw,118px)/.9 var(--display);letter-spacing:-.045em;margin:18px 0;color:var(--ink)}
+h2{font:600 clamp(30px,3.8vw,54px)/1.02 var(--display);letter-spacing:-.035em;margin:14px 0;color:var(--ink)}
+p{color:var(--body);font-size:17px;line-height:1.65;margin:0;max-width:44ch}
+@media (max-width:900px){section{align-items:flex-end;padding:0 20px 0}section.r{justify-content:flex-start}section .card{max-width:100%;position:sticky;bottom:7vh;max-height:52vh;overflow:hidden;background:rgba(8,8,10,.62);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-radius:14px;padding:18px}.callout{display:none}#leaders{display:none}.place{display:none}.prog{bottom:12px;left:20px}}
+h1,h2,p,.stat{text-shadow:0 1px 2px rgba(0,0,0,.6),0 4px 30px rgba(0,0,0,.75)}
+h1 em,h2 em{font-style:normal;color:var(--accent-2)}
+.eyebrow{display:inline-flex;align-items:center;gap:10px}.eyebrow::before{content:'';width:22px;height:1px;background:var(--accent)}
+section.c .eyebrow::before{display:none}
+.scrim{position:fixed;inset:0;z-index:2;pointer-events:none;background:linear-gradient(90deg,rgba(8,8,10,.72) 0%,rgba(8,8,10,.35) 32%,rgba(8,8,10,0) 55%);transition:opacity .6s}
+.scrim.r{background:linear-gradient(270deg,rgba(8,8,10,.72) 0%,rgba(8,8,10,.35) 32%,rgba(8,8,10,0) 55%)}
+.scrim.c{background:radial-gradient(ellipse at center,rgba(8,8,10,.55) 0%,rgba(8,8,10,.15) 45%,rgba(8,8,10,0) 70%)}
+.cta{display:inline-flex;gap:12px;margin-top:28px}
+.cta a{font:600 14px var(--display);letter-spacing:-.005em;color:#1b1410;background:var(--accent);padding:14px 22px;border-radius:3px;text-decoration:none}
+.cta a.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.prog{position:fixed;left:28px;bottom:28px;z-index:5;font:500 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.prog b{color:var(--ink);font-weight:500}
+.prog i{display:block;width:180px;height:2px;background:var(--line);margin-top:10px;position:relative}
+.prog i::after{content:'';position:absolute;inset:0;background:var(--accent);transform-origin:left;transform:scaleX(var(--p,0))}
+</style></head><body>
+<canvas id="gl"></canvas><div class="scrim c" id="scrim"></div>
+<div id="labels"><svg id="leaders"></svg></div>
+<div class="top"><span class="brand"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5"/><circle cx="10" cy="10" r="2.2" style="fill:var(--accent);stroke:none"/><path d="M10 0v4M10 16v4M0 10h4M16 10h4"/></svg>BaseScout</span><span><a href="/app" style="color:inherit">Open the app →</a></span></div>
+<div class="prog" id="prog"></div><div class="place" id="place"></div>
+<main>
+  <section><div class="card"><div class="eyebrow">NASA Space Apps NYC 2026 · BaseScout</div><h1>Where do we build on the <em>Moon</em> and <em>Mars?</em></h1><p>Find each base site's twin on Earth, then rehearse the scouting mission there. Scroll: every point you see is real elevation data.</p></div></section>
+  <section class="r"><div class="card"><div class="eyebrow">Mars · Jezero Crater</div><h2>Start with the real ground.</h2><p>NASA's MOLA laser altimeter mapped this crater from orbit. A 25 × 25 km window on a 500 m grid.</p><div class="stat"><span>Relief<b>1,141 m</b></span><span>Median slope<b>1.37°</b></span></div></div></section>
+  <section><div class="card"><div class="eyebrow">Earth twin for Mars · Askja, Iceland</div><h2>Then find its <em>twin.</em></h2><p>Same window, same grid, nine real Earth analogs. Askja, where Apollo astronauts trained in geology, comes out closest.</p><div class="stat"><span>Terrain distance<b id="scoreMars">0.00</b></span><span>vs Hanksville<b>0.47</b></span></div></div></section>
+  <section class="r"><div class="card"><div class="eyebrow">Moon · Shackleton crater rim</div><h2>Now the <em>Moon.</em></h2><p>NASA LRO laser-altimeter data at the lunar south pole, where Artemis plans a base camp: 4,577 m of relief and slopes far steeper than Jezero.</p><div class="stat"><span>Relief<b>4,577 m</b></span><span>Median slope<b>19.6°</b></span></div></div></section>
+  <section><div class="card"><div class="eyebrow">Earth twin for the Moon · Mauna Kea, Hawaii</div><h2>Its twin is a <em>volcano.</em></h2><p>Mauna Kea ranks first for both Moon targets. It is where NASA already tested lunar resource extraction, found here from terrain data alone.</p><div class="stat"><span>Terrain distance<b id="scoreMoon">0.00</b></span><span>vs Askja<b>0.81</b></span></div></div></section>
+<section><div class="card"><div class="eyebrow">Mission 01 · Crew base scout</div><h1>Meet the<br><em>scout.</em></h1><p>A six-wheel rover that drives to candidate base sites, measures the slope and tests the soil before anyone lands.</p></div></section>
+  <section class="r"><div class="card"><div class="eyebrow">Mobility</div><h2>Rocker-bogie suspension.</h2><p>Six independently driven wheels keep contact with uneven ground, so the rover can climb rocks without tipping.</p></div></section>
+  <section><div class="card"><div class="eyebrow">Power and thermal</div><h2>Built to survive the cold.</h2><p>A solar deck on top, a radioisotope power unit at the rear, and gold thermal blankets around the electronics.</p></div></section>
+  <section class="r"><div class="card"><div class="eyebrow">Navigation</div><h2>Eyes two metres up.</h2><p>Stereo cameras on the mast map the ground ahead and pick a safe route to each pad.</p></div></section>
+  <section><div class="card"><div class="eyebrow">Systems</div><h2>Every part has a job.</h2><p>Body, mobility, power, navigation, sampling. In the demo, a real Raspberry Pi joystick drives it and live sensors report back.</p></div></section>
+  <section class="r"><div class="card"><div class="eyebrow">Touchdown · Earth twin</div><h2>Now, scout <em>the base.</em></h2><p>Pick a Moon or Mars base target, rehearse at its Earth twin, test both pads, and save the report.</p><div class="cta"><a href="/app?view=mission">Launch mission</a><a class="ghost" href="/app">Compare terrain</a></div></div></section>
+</main>
+<script type="module" src="/src/landing.js"></script></body></html>

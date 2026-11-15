@@ -77,7 +77,8 @@ function Credits() {
 }
 
 function App() {
-  const [tab,setTab] = useState('terrain');
+  // /app?view=mission opens the rover mission directly (used by the landing page).
+  const [tab,setTab] = useState(() => new URLSearchParams(window.location.search).get('view') === 'mission' ? 'mission' : 'terrain');
   const [mission,setMission] = useState(newMission);
   const [site,setSite] = useState(defaultSite);
   const [targetId,setTargetId] = useState(defaultTarget);
