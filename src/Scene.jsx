@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { Sky } from 'three/addons/objects/Sky.js';
-import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeVertices, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { padsFor, start, nearPad, defaultSite, siteName } from './mission';
 
 // The active site's pads; set when the Scene mounts (it remounts when the site changes).
@@ -24,8 +24,9 @@ export const LOOKS = {
 };
 
 const keysByAxis = { KeyW: [0,1], ArrowUp: [0,1], KeyS: [0,-1], ArrowDown: [0,-1], KeyA: [-1,0], ArrowLeft: [-1,0], KeyD: [1,0], ArrowRight: [1,0] };
-const ROVER_LENGTH = 1.8;
-const ROVER_RADIUS = .8;
+const ROVER_LENGTH = 2.3;
+const ROVER_RADIUS = 1;
+const TRACK_HALF = .84;
 const MAX_SPEED = 6;
 const HAZE = '#c9c3b9';
 
@@ -42,6 +43,8 @@ export const formatTune = t => [t.scale, t.rotX, t.rotY, t.rotZ, t.lift].map(n =
 
 // Each pad is a flat plane tilted by its slope. The second value is the downhill direction (x, z).
 const padTilt = { A: [1, 0], B: [0, 1] };
+// Fracture planes for the rock shape: unit normal (x, y, z) and distance from the centre.
+const ROCK_CUTS = [[.62, .5, .6, .62], [-.7, .35, .62, .58], [.1, .78, -.62, .6], [-.4, -.2, -.89, .66], [.85, -.1, -.52, .7], [0, 1, 0, .72], [0, -1, 0, .5]];
 const padPlane = (name, x, z) => {
   const pad = pads[name], [dx, dz] = padTilt[name];
   return Math.tan(THREE.MathUtils.degToRad(pad.slope)) * ((x - pad.x) * dx + (z - pad.z) * dz);
@@ -179,7 +182,7 @@ export default function Scene({ site = defaultSite, testable = ['A', 'B'], faile
     resize.observe(host);
 
     // Physical sky; the same sky lights the scene through an environment map.
-    const sunDirection = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(56), THREE.MathUtils.degToRad(-58));
+    const sunDirection = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(65), THREE.MathUtils.degToRad(-58));
     const sky = new Sky();
     sky.scale.setScalar(1000);
     sky.material.uniforms.turbidity.value = siteLook.turbidity;
@@ -226,13 +229,13 @@ export default function Scene({ site = defaultSite, testable = ['A', 'B'], faile
     ground.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     ground.computeVertexNormals();
     ground.computeBoundingSphere();
-    const groundMesh = new THREE.Mesh(ground, new THREE.MeshStandardMaterial({ map: soilMap, normalMap: soilNormal, normalScale: new THREE.Vector2(1, 1), vertexColors: true, roughness: .96, metalness: 0, color: siteLook.ground }));
+    const groundMesh = new THREE.Mesh(ground, new THREE.MeshStandardMaterial({ map: soilMap, normalMap: soilNormal, normalScale: new THREE.Vector2(1.6, 1.6), vertexColors: true, roughness: .96, metalness: 0, color: siteLook.ground }));
     groundMesh.receiveShadow = true;
     scene.add(groundMesh);
 
     // Rocks: pebbles inside the drive area, boulders outside it
     const random = mulberry32(20261114);
-    const rockCount = 520;
+    const rockCount = 1500;
     // Rock shape: a welded sphere pushed around by fractal noise, smooth-shaded.
     const rockBase = new THREE.IcosahedronGeometry(1, 3);
     rockBase.deleteAttribute('normal');
@@ -243,7 +246,10 @@ export default function Scene({ site = defaultSite, testable = ['A', 'B'], faile
     for (let i = 0; i < rockPoints.count; i++) {
       const x = rockPoints.getX(i), y = rockPoints.getY(i), z = rockPoints.getZ(i);
       const bump = .72 + .75 * fbm(terrainNoise, x * 1.4 + y * .9 + 20, z * 1.4 - y * .7 + 20, 4);
-      rockPoints.setXYZ(i, x * bump, y * bump, z * bump);
+      // Slice the lump with a few planes so it has flat fracture faces like broken rock.
+      let px = x * bump, py = y * bump, pz = z * bump;
+      for (const [nx, ny, nz, d] of ROCK_CUTS) { const over = px * nx + py * ny + pz * nz - d; if (over > 0) { px -= nx * over; py -= ny * over; pz -= nz * over; } }
+      rockPoints.setXYZ(i, px, py, pz);
       rockUv.push(Math.atan2(z, x) / 3.1416 * 1.5, y * .75);
     }
     rockGeometry.setAttribute('uv', new THREE.Float32BufferAttribute(rockUv, 2));
@@ -255,13 +261,13 @@ export default function Scene({ site = defaultSite, testable = ['A', 'B'], faile
     while (placed < rockCount) {
       const x = (random() - .5) * 120, z = (random() - .5) * 100 - 8;
       const inside = Math.abs(x) < 16 && Math.abs(z) < 12;
-      const size = inside ? .04 + random() * .09 : .12 + random() * random() * 1.3;
+      const size = inside ? .025 + random() * random() * .12 : .1 + random() * random() * 1.5;
       if (Object.values(pads).some(pad => Math.hypot(x - pad.x, z - pad.z) < 2.8) || Math.hypot(x - start.x, z - start.z) < 1.6) { random(); continue; }
       position.set(x, groundHeight(x, z) + size * .12, z);
       quaternion.setFromEuler(euler.set(random() * 6.28, random() * 6.28, random() * 6.28));
       scale.set(size * (.7 + random() * .6), size * (.45 + random() * .4), size * (.7 + random() * .6));
       rocks.setMatrixAt(placed, matrix.compose(position, quaternion, scale));
-      rocks.setColorAt(placed, tint.setHSL(.05 + random() * .03, .12 + random() * .14, .5 + random() * .3));
+      rocks.setColorAt(placed, tint.setHSL(.05 + random() * .03, .1 + random() * .14, .42 + random() * .4));
       placed++;
     }
     scene.add(rocks);
@@ -270,14 +276,28 @@ export default function Scene({ site = defaultSite, testable = ['A', 'B'], faile
     const obstacles = [];
     const plantSpec = siteLook.plants;
     if (plantSpec?.count) {
-      const plantGeo = mergeVertices((() => { const g = new THREE.IcosahedronGeometry(1, 2); g.deleteAttribute('normal'); g.deleteAttribute('uv'); return g; })());
-      const pp = plantGeo.attributes.position;
-      for (let i = 0; i < pp.count; i++) {
-        const x = pp.getX(i), y = pp.getY(i), z = pp.getZ(i);
-        const bump = .75 + .5 * fbm(terrainNoise, x * 2.3 + 5, z * 2.3 + y * 1.7 + 5, 3);
-        pp.setXYZ(i, x * bump, Math.max(y, -.2) * bump, z * bump);
+      let plantGeo;
+      if (plantSpec.flat) { // moss / lichen patch
+        plantGeo = mergeVertices((() => { const g = new THREE.IcosahedronGeometry(1, 2); g.deleteAttribute('normal'); g.deleteAttribute('uv'); return g; })());
+        const pp = plantGeo.attributes.position;
+        for (let i = 0; i < pp.count; i++) {
+          const x = pp.getX(i), y = pp.getY(i), z = pp.getZ(i);
+          const bump = .75 + .5 * fbm(terrainNoise, x * 2.3 + 5, z * 2.3 + y * 1.7 + 5, 3);
+          pp.setXYZ(i, x * bump, Math.max(y, -.2) * bump, z * bump);
+        }
+        plantGeo.computeVertexNormals();
+      } else { // desert shrub: a tuft of thin stems fanning out from the root
+        const stems = [], srand = mulberry32(4242);
+        for (let i = 0; i < 34; i++) {
+          const stem = new THREE.ConeGeometry(.035 + srand() * .04, .7 + srand() * .5, 4, 1);
+          stem.translate(0, stem.parameters.height / 2, 0);
+          stem.rotateZ(srand() ** .7 * 1.2);
+          stem.rotateY(srand() * 6.283);
+          stem.deleteAttribute('uv');
+          stems.push(stem);
+        }
+        plantGeo = mergeGeometries(stems);
       }
-      plantGeo.computeVertexNormals();
       const plants = new THREE.InstancedMesh(plantGeo, new THREE.MeshStandardMaterial({ color: plantSpec.color, roughness: .95, flatShading: false }), plantSpec.count);
       plants.castShadow = !plantSpec.flat; plants.receiveShadow = true;
       const prand = mulberry32(site.length * 7919 + 17);
@@ -286,17 +306,21 @@ export default function Scene({ site = defaultSite, testable = ['A', 'B'], faile
         do { x = (prand() - .5) * 70; z = (prand() - .5) * 56 - 6; }
         while (Object.values(pads).some(pad => Math.hypot(x - pad.x, z - pad.z) < 3) || Math.hypot(x - start.x, z - start.z) < 2.2);
         const size = plantSpec.size * (.45 + prand() * .9);
-        position.set(x, groundHeight(x, z) + (plantSpec.flat ? .01 : size * .25), z);
+        position.set(x, groundHeight(x, z) + (plantSpec.flat ? .01 : -.03), z);
         quaternion.setFromEuler(euler.set(0, prand() * 6.28, 0));
         scale.set(size * (1 + prand() * .6), plantSpec.flat ? size * .08 : size * (.55 + prand() * .35), size * (1 + prand() * .6));
         plants.setMatrixAt(i, matrix.compose(position, quaternion, scale));
-        if (!plantSpec.flat) obstacles.push({ x, z, r: Math.max(scale.x, scale.z) * .85 });
+        if (!plantSpec.flat) obstacles.push({ x, z, r: Math.max(scale.x, scale.z) * .7 });
         plants.setColorAt(i, tint.set(plantSpec.color).offsetHSL((prand() - .5) * .04, (prand() - .5) * .1, (prand() - .5) * .08));
       }
       scene.add(plants);
     }
 
     // Pads
+    const softDisc = (stops) => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); const r = g.createRadialGradient(64, 64, 0, 64, 64, 64); for (const [at, v] of stops) r.addColorStop(at, 'rgb(' + v + ',' + v + ',' + v + ')'); g.fillStyle = r; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); };
+    const padFade = softDisc([[0, 150], [.7, 140], [1, 0]]);
+    const stakeGeometry = new THREE.CylinderGeometry(.018, .018, .42, 6), capGeometry = new THREE.SphereGeometry(.045, 10, 8);
+    const stakeMaterial = new THREE.MeshStandardMaterial({ color: '#3a3836', roughness: .6, metalness: .5 });
     const up = new THREE.Vector3(0, 1, 0);
     const rings = {};
     const labels = {};
@@ -304,15 +328,24 @@ export default function Scene({ site = defaultSite, testable = ['A', 'B'], faile
       const [dx, dz] = padTilt[name];
       const grade = Math.tan(THREE.MathUtils.degToRad(pad.slope));
       const normal = new THREE.Vector3(-grade * dx, 1, -grade * dz).normalize();
-      const disk = new THREE.Mesh(new THREE.CylinderGeometry(2.1, 2.1, .1, 64), new THREE.MeshStandardMaterial({ map: soilMap, normalMap: soilNormal, color: '#8f8378', roughness: .85 }));
-      disk.quaternion.setFromUnitVectors(up, normal);
-      disk.position.set(pad.x, .04, pad.z);
+      // Cleared, compacted ground with a soft edge instead of a raised disc.
+      const disk = new THREE.Mesh(new THREE.CircleGeometry(2.7, 64), new THREE.MeshStandardMaterial({ color: new THREE.Color(siteLook.ground).multiplyScalar(.62), alphaMap: padFade, transparent: true, depthWrite: false, roughness: .82, polygonOffset: true, polygonOffsetFactor: -1 }));
+      disk.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+      disk.position.set(pad.x, .025, pad.z);
       disk.receiveShadow = true;
       scene.add(disk);
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(2.04, .035, 8, 128), new THREE.MeshBasicMaterial({ toneMapped: false }));
+      const ringMaterial = new THREE.MeshBasicMaterial({ toneMapped: false });
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(2.04, .02, 8, 128), ringMaterial);
       ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
-      ring.position.set(pad.x, .12, pad.z);
+      ring.position.set(pad.x, .05, pad.z);
       scene.add(ring);
+      // Survey stakes around the pad, capped in the pad's status colour.
+      for (let k = 0; k < 6; k++) {
+        const a = k / 6 * Math.PI * 2 + .5, sx = pad.x + Math.cos(a) * 2.04, sz = pad.z + Math.sin(a) * 2.04, sy = padPlane(name, sx, sz);
+        const stake = new THREE.Mesh(stakeGeometry, stakeMaterial); stake.position.set(sx, sy + .21, sz); stake.castShadow = true;
+        const cap = new THREE.Mesh(capGeometry, ringMaterial); cap.position.set(sx, sy + .44, sz);
+        scene.add(stake, cap);
+      }
       rings[name] = ring;
       const label = document.createElement('span');
       label.className = 'pad-label';
@@ -326,7 +359,18 @@ export default function Scene({ site = defaultSite, testable = ['A', 'B'], faile
     rover.position.set(start.x, groundHeight(start.x, start.z), start.z);
     scene.add(rover);
     const { group: placeholder, wheels } = buildRover();
+    placeholder.scale.setScalar(ROVER_LENGTH / 1.8);
     rover.add(placeholder);
+
+    // Dust kicked up by the wheels
+    const dustTexture = softDisc([[0, 255], [.4, 120], [1, 0]]);
+    const dustColor = new THREE.Color(siteLook.ground).lerp(new THREE.Color('#ffffff'), .25);
+    const puffs = Array.from({ length: 36 }, () => {
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ alphaMap: dustTexture, color: dustColor, transparent: true, opacity: 0, depthWrite: false }));
+      sprite.visible = false; sprite.userData = { life: 0, vx: 0, vy: 0, vz: 0 };
+      scene.add(sprite); return sprite;
+    });
+    let puffIndex = 0, sincePuff = 0;
 
     // Wheel tracks
     const MAX_TRACKS = 700;
@@ -436,7 +480,7 @@ export default function Scene({ site = defaultSite, testable = ['A', 'B'], faile
     const marker = new THREE.Vector3(), normal = new THREE.Vector3(), tilt = new THREE.Quaternion(), turn = new THREE.Quaternion();
     const look = new THREE.Vector3(rover.position.x * .72, .6, rover.position.z * .72 - 2);
     const wanted = new THREE.Vector3();
-    const CAMERA_OFFSET = new THREE.Vector3(0, 8.2, 17.5);
+    const CAMERA_OFFSET = new THREE.Vector3(0, 6.9, 17.2);
     camera.position.copy(look).add(CAMERA_OFFSET);
     camera.lookAt(look);
     let heading = 0, lastTime = 0, elapsed = 0, hudAt = -1, previousArrival, source = 'IDLE';
@@ -502,13 +546,31 @@ export default function Scene({ site = defaultSite, testable = ['A', 'B'], faile
 
       if (sinceTrack > .3) {
         sinceTrack = 0;
-        for (const side of [-.66, .66]) {
+        for (const side of [-TRACK_HALF, TRACK_HALF]) {
           position.set(side, .03, .2).applyQuaternion(rover.quaternion).add(rover.position);
           tracks.setMatrixAt(trackIndex % MAX_TRACKS, matrix.compose(position, rover.quaternion, scale.set(1, 1, 1)));
           trackIndex++;
         }
         tracks.count = Math.min(trackIndex, MAX_TRACKS);
         tracks.instanceMatrix.needsUpdate = true;
+      }
+
+      // Dust: spawn behind the wheels while moving, then drift up and fade.
+      sincePuff += dt;
+      if (speed > 1.2 && sincePuff > .05) {
+        sincePuff = 0;
+        const puff = puffs[puffIndex++ % puffs.length], side = puffIndex % 2 ? -TRACK_HALF : TRACK_HALF;
+        position.set(side, .12, .9).applyQuaternion(rover.quaternion).add(rover.position);
+        puff.position.copy(position); puff.visible = true;
+        Object.assign(puff.userData, { life: 1, vx: (Math.random() - .5) * .5 - velocity.x * .05, vy: .35 + Math.random() * .3, vz: (Math.random() - .5) * .5 + velocity.y * .05 });
+      }
+      for (const puff of puffs) {
+        const u = puff.userData; if (u.life <= 0) continue;
+        u.life -= dt / 1.5;
+        if (u.life <= 0) { puff.visible = false; continue; }
+        puff.position.x += u.vx * dt; puff.position.y += u.vy * dt; puff.position.z += u.vz * dt;
+        puff.scale.setScalar(.35 + (1 - u.life) * 1.5);
+        puff.material.opacity = .2 * u.life * Math.min(1, (1 - u.life) * 8);
       }
 
       // Camera drifts after the rover while keeping both pads in frame.

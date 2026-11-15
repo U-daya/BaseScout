@@ -19,7 +19,8 @@ import './style.css';
 const SAMPLE_MS = 2600;
 
 const envModel = import.meta.env.VITE_ROVER_MODEL_URL;
-const initialModel = envModel ? { url: envModel, label: envModel.split('/').pop() } : null;
+// Default rover: NASA's Perseverance model (NASA/JPL-Caltech), which faces +Z, so it is turned 180°.
+const initialModel = envModel ? { url: envModel, label: envModel.split('/').pop() } : { url: '/landing/rover.glb', label: 'NASA Perseverance' };
 
 // Steps for a mission where either pad can be tested first.
 function missionSteps(mission, atPad) {
@@ -97,7 +98,7 @@ function App() {
   const [piStatus,setPiStatus] = useState('off');
   const [model,setModel] = useState(initialModel);
   const [modelStatus,setModelStatus] = useState(null);
-  const [tune,setTune] = useState(() => parseTune(import.meta.env.VITE_ROVER_MODEL_TUNE));
+  const [tune,setTune] = useState(() => envModel ? parseTune(import.meta.env.VITE_ROVER_MODEL_TUNE) : { ...parseTune(''), rotY: 180 });
   const [showBounds,setShowBounds] = useState(false);
   const [tuning,setTuning] = useState(false);
   const joystick = useRef({x:0,y:0,received:-Infinity});
