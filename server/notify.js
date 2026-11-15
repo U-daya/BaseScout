@@ -21,7 +21,7 @@ export function alertText(saved, publicUrl) {
   const steps = report.tests.map(t => `Pad ${t.pad} soil ${t.soil}`).join(', ');
   const verdict = report.recommendation ? `Recommend Pad ${report.recommendation}.` : 'Neither pad qualifies.';
   const link = publicUrl ? ` ${publicUrl.replace(/\/$/, '')}/app?mission=${saved.id}` : '';
-  return `BaseScout mission saved: ${steps}. ${verdict}${link}`.slice(0, 320);
+  return `Knowwhere mission saved: ${steps}. ${verdict}${link}`.slice(0, 320);
 }
 
 async function send(config, body) {

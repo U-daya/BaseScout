@@ -1,9 +1,9 @@
-# BaseScout: Space Apps submission kit
+# Knowwhere: Space Apps submission kit
 
 Copy-paste material for the NASA Space Apps Challenge 2026 project page (Team T34, New York City).
 Numbers below come straight from `public/terrain/sites.json` and the app; re-check them if the data changes.
 
-- **Live demo:** https://basescout.basescout-team.workers.dev/
+- **Live demo:** https://knowwhere.nyc (backup: https://basescout.basescout-team.workers.dev/)
 - **Code:** https://github.com/U-daya/BaseScout
 - **Challenge:** Identify Earth locations that analog the permanent Moon base locations and Mars
 
@@ -11,13 +11,13 @@ Numbers below come straight from `public/terrain/sites.json` and the app; re-che
 
 ## 1. High-level summary (short field)
 
-BaseScout finds the places on Earth whose terrain best matches where we plan to build on the Moon and Mars, then lets you rehearse choosing the base site there. It compares NASA laser-altimeter elevation data for Shackleton crater rim and Malapert Massif (Moon) and Jezero Crater (Mars) with nine real Earth analog sites, using one formula on a common 25 × 25 km, 500 m grid. The ranking matches real NASA practice: Mauna Kea, where NASA has field-tested lunar resource equipment, comes out as the closest Moon twin; Askja, where Apollo astronauts trained, ties as the closest Mars twin. A rover simulation and a Raspberry Pi field kit then rehearse the next step: testing two candidate landing pads on real measured slopes.
+Knowwhere finds the places on Earth whose terrain best matches where we plan to build on the Moon and Mars, then lets you rehearse choosing the base site there. It compares NASA laser-altimeter elevation data for Shackleton crater rim and Malapert Massif (Moon) and Jezero Crater (Mars) with nine real Earth analog sites, using one formula on a common 25 × 25 km, 500 m grid. The ranking matches real NASA practice: Mauna Kea, where NASA has field-tested lunar resource equipment, comes out as the closest Moon twin; Askja, where Apollo astronauts trained, ties as the closest Mars twin. A rover simulation and a Raspberry Pi field kit then rehearse the next step: testing two candidate landing pads on real measured slopes.
 
 ## 2. Project details (long field)
 
 ### What it does
 
-1. **Find the Earth twin.** Pick a permanent-base target: Jezero Crater (Mars), Shackleton crater rim or Malapert Massif (Moon). BaseScout ranks nine real Earth analog sites by terrain similarity and shows each one in 3D with a score breakdown.
+1. **Find the Earth twin.** Pick a permanent-base target: Jezero Crater (Mars), Shackleton crater rim or Malapert Massif (Moon). Knowwhere ranks nine real Earth analog sites by terrain similarity and shows each one in 3D with a score breakdown.
 2. **Rehearse the landing.** At the chosen Earth twin, a rover drives to two candidate pads. Each pad's slope is measured from that site's real elevation data; the soil test is simulated. Fixed rules pick the pad (slope ≤ 8° and soil pass), so the result is reproducible.
 3. **Report.** Each mission saves an immutable, shareable report with the test sequence, live field telemetry from the Raspberry Pi, and a plain-English debrief written by Google Gemini.
 
@@ -44,7 +44,7 @@ A Raspberry Pi 5 field kit (Grove Base Hat with joystick, light and air-quality 
 
 ### Benefits and intended impact
 
-Analog sites are expensive to reach and choose. BaseScout gives mission planners, educators and students a transparent, reproducible way to pick the Earth site that best stands in for a specific Moon or Mars base location, and to rehearse the site-selection steps before anyone travels there.
+Analog sites are expensive to reach and choose. Knowwhere gives mission planners, educators and students a transparent, reproducible way to pick the Earth site that best stands in for a specific Moon or Mars base location, and to rehearse the site-selection steps before anyone travels there.
 
 ### Tools and technologies
 
@@ -60,14 +60,14 @@ React, Vite and three.js; Python (NumPy) for the elevation pipeline; Cloudflare 
 | Time | On screen | Voice-over |
 |---|---|---|
 | 0–4 s | Landing page: the particle planet, title "Where do we build on the Moon and Mars?" | "NASA is choosing where to build on the Moon and Mars. Where on Earth do we practise?" |
-| 4–10 s | Scroll: particles morph from Jezero into Askja, score 0.28 | "BaseScout compares NASA elevation data for each base site with nine real places on Earth." |
+| 4–10 s | Scroll: particles morph from Jezero into Askja, score 0.28 | "Knowwhere compares NASA elevation data for each base site with nine real places on Earth." |
 | 10–15 s | Shackleton morphs into Mauna Kea, score 0.46 | "For the lunar south pole, Mauna Kea wins: exactly where NASA has tested lunar equipment." |
 | 15–24 s | App: rover drives into Pad A with the Pi joystick in hand; LCD glows green; Test soil | "Then we rehearse: a rover, driven by our Raspberry Pi field kit, tests two landing pads on real measured slopes." |
-| 24–30 s | Report page: "Recommend Pad A", Gemini debrief, phone buzzes with the SMS | "One saved report, one decision. BaseScout: find the twin, then rehearse the landing." |
+| 24–30 s | Report page: "Recommend Pad A", Gemini debrief, phone buzzes with the SMS | "One saved report, one decision. Knowwhere: find the twin, then rehearse the landing." |
 
 ## 4. Seven-slide outline
 
-1. **Title:** BaseScout. Find the Earth twin of a Moon or Mars base site, then rehearse the landing. Team T34, NYC, live link and QR code.
+1. **Title:** Knowwhere. Find the Earth twin of a Moon or Mars base site, then rehearse the landing. Team T34, NYC, live link and QR code.
 2. **Problem:** Artemis and Mars missions need practice sites on Earth, but analogs are usually picked by experience, not by measured terrain match.
 3. **Approach:** NASA LOLA (Moon) + MOLA (Mars) + Earth elevation, same 25 km window and 500 m grid, three metrics, one distance formula.
 4. **Results:** the twins table above, plus the point that it agrees with real NASA training sites (Askja, Mauna Kea, Dumont Dunes), and the honest limit.

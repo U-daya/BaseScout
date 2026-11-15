@@ -1,4 +1,4 @@
-// BaseScout landing page: scroll story (Moon and Mars targets, Earth twins, Perseverance).
+// Knowwhere landing page: scroll story (Moon and Mars targets, Earth twins, Perseverance).
 // Rover model: NASA/JPL-Caltech Perseverance (NASA 3D Resources), compressed with gltf-transform.
 // Lighting: "Goegap" HDRI by Poly Haven (CC0).
 import * as THREE from 'three';

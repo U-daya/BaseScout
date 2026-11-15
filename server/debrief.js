@@ -14,13 +14,13 @@ export function ruleDebrief(report) {
       : `its ${test.slope}° slope exceeds the ${slopeLimit}° limit`;
     return `Pad ${test.pad} ${test.soil === 'pass' ? 'passed' : 'failed'} the simulated soil test and ${slope}.`;
   });
-  parts.push(recommendation ? `BaseScout recommends Pad ${recommendation}.` : 'Neither pad qualifies.');
+  parts.push(recommendation ? `Knowwhere recommends Pad ${recommendation}.` : 'Neither pad qualifies.');
   return parts.join(' ');
 }
 
 function prompt(report) {
   return [
-    'You are the mission debrief officer for BaseScout, a NASA Space Apps demo where a rover scouts two candidate crew base pads.',
+    'You are the mission debrief officer for Knowwhere, a NASA Space Apps demo where a rover scouts two candidate crew base pads.',
     'Explain the outcome of this mission report in two short sentences for a general audience.',
     'Use only the facts in the report. Do not change or second-guess the recommendation.',
     'The rover is rehearsing on Earth at the Mars analog site named in the report. Pad slopes are measured from the real elevation data for that site (500 m grid). Soil results are simulated demo values; do not call them real measurements.',

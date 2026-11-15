@@ -1,13 +1,15 @@
-# BaseScout
+# Knowwhere
+
+Live at **https://knowwhere.nyc**. Formerly called BaseScout; the repository, Worker and server keep that name.
 
 NASA Space Apps prototype. Compare real Earth and Mars elevation windows, then drive a simulated rover to choose between two crew-base pads.
 
 ## Teammate handoff
 
-- [Live BaseScout demo](https://basescout.basescout-team.workers.dev/)
+- [Live Knowwhere demo](https://knowwhere.nyc) (backup: https://basescout.basescout-team.workers.dev/)
 - Install Node 24, then run `npm ci` and `npm run dev` from this directory. The keyboard mission and bundled terrain comparison run locally without a database.
 - Both simulated mission routes and the terrain comparison were tested. A fresh report was saved on the public site and opened on a phone with all laptop terminals closed.
-- Live request path: Cloudflare Worker → Cloudflare Quick Tunnel on Vultr → BaseScout API → TigerData. The API runs as `basescout-api.service` on loopback port 8789. The background tunnel runs as `basescout-demo-tunnel.service`.
+- Live request path: Cloudflare Worker → Cloudflare Quick Tunnel on Vultr → mission API → TigerData. The API runs as `basescout-api.service` on loopback port 8789. The background tunnel runs as `basescout-demo-tunnel.service`.
 - Leave the Vultr instance running for the demo. The Quick Tunnel survives SSH logout. If it stops or the VM reboots, start a new tunnel and update the Worker’s `VULTR_ORIGIN` secret. The browser still uses the same public BaseScout URL.
 - Pending work: Gemini mission debrief, physical Pi and joystick validation, SolidWorks GLB export and integration, and clarification of the SpaceX ST item.
 

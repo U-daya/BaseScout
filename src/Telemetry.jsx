@@ -179,7 +179,7 @@ export default function Telemetry({ joystick, onStatus, onPacket }) {
     </form>
     {blocked && <p className="warn" role="note">
       This page is served over <b>https://</b>, so the browser will block a plain <b>ws://</b> Pi address.
-      Either give the Pi a <b>wss://</b> address (for example through Cloudflare Tunnel), or run BaseScout on the demo laptop
+      Either give the Pi a <b>wss://</b> address (for example through Cloudflare Tunnel), or run Knowwhere on the demo laptop
       with <code>npm run dev</code> and open <code>http://127.0.0.1:5173</code>. See “Pi demo setup” in the README.
     </p>}
     <div className="telemetry-body">

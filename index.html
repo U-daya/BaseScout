@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<title>BaseScout</title>
+<title>Knowwhere</title>
 <meta name="description" content="Find the Earth twins of Moon and Mars base sites with real NASA elevation data, then rehearse the rover scouting mission there.">
 <script>if (new URLSearchParams(location.search).has("mission")) location.replace("/app" + location.search);</script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
@@ -25,7 +25,8 @@ section.c{justify-content:center;text-align:center}section.c .card{max-width:640
 .stat{display:flex;gap:34px;margin-top:22px;font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}.stat b{display:block;font:500 34px/1 var(--mono);color:var(--ink);letter-spacing:-.04em;color:var(--ink);margin-top:8px}
 .place{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:5;font:500 11px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);transition:opacity .4s}.place b{color:var(--accent);font-weight:500}
 .eyebrow{font:500 11px var(--mono);letter-spacing:.2em;color:var(--accent);text-transform:uppercase}
-h1{font:700 clamp(46px,7.4vw,118px)/.9 var(--display);letter-spacing:-.045em;margin:18px 0;color:var(--ink)}
+h1{font:700 clamp(44px,min(6.4vw,10.5vh),112px)/.9 var(--display);letter-spacing:-.045em;margin:18px 0;color:var(--ink)}
+@media (min-width:901px){main section:first-child .card{max-width:min(780px,48vw)}}
 h2{font:600 clamp(30px,3.8vw,54px)/1.02 var(--display);letter-spacing:-.035em;margin:14px 0;color:var(--ink)}
 p{color:var(--body);font-size:17px;line-height:1.65;margin:0;max-width:44ch}
 @media (max-width:900px){section{align-items:flex-end;padding:0 20px 0}section.r{justify-content:flex-start}section .card{max-width:100%;position:sticky;bottom:7vh;max-height:52vh;overflow:hidden;background:rgba(8,8,10,.62);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-radius:14px;padding:18px}.callout{display:none}#leaders{display:none}.place{display:none}.prog{bottom:12px;left:20px}}
@@ -46,10 +47,10 @@ section.c .eyebrow::before{display:none}
 </style></head><body>
 <canvas id="gl"></canvas><div class="scrim c" id="scrim"></div>
 <div id="labels"><svg id="leaders"></svg></div>
-<div class="top"><span class="brand"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="8"/><path d="M10 2a8 8 0 0 0 0 16a4.6 8 0 0 1 0-16z" style="fill:var(--accent);stroke:none;opacity:.85"/><circle cx="13.2" cy="10" r="2.5"/><circle cx="13.2" cy="10" r=".95" style="fill:var(--accent);stroke:none"/></svg>BaseScout</span><span><a href="/app" style="color:inherit">Open the app →</a></span></div>
+<div class="top"><span class="brand"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="8"/><path d="M10 2a8 8 0 0 0 0 16a4.6 8 0 0 1 0-16z" style="fill:var(--accent);stroke:none;opacity:.85"/><circle cx="13.2" cy="10" r="2.5"/><circle cx="13.2" cy="10" r=".95" style="fill:var(--accent);stroke:none"/></svg>Knowwhere</span><span><a href="/app" style="color:inherit">Open the app →</a></span></div>
 <div class="prog" id="prog"></div><div class="place" id="place"></div>
 <main>
-  <section><div class="card"><div class="eyebrow">NASA Space Apps NYC 2026 · BaseScout</div><h1>Where do we build on the <em>Moon</em> and <em>Mars?</em></h1><p>Find each base site's twin on Earth, then rehearse the scouting mission there. Scroll: every point you see is real elevation data.</p></div></section>
+  <section><div class="card"><div class="eyebrow">NASA Space Apps NYC 2026 · Knowwhere</div><h1>Where do we build on the <em>Moon</em> and <em>Mars?</em></h1><p>Find each base site's twin on Earth, then rehearse the scouting mission there. Scroll: every point you see is real elevation data.</p></div></section>
   <section class="r"><div class="card"><div class="eyebrow">Mars · Jezero Crater</div><h2>Start with the real ground.</h2><p>NASA's MOLA laser altimeter mapped this crater from orbit. A 25 × 25 km window on a 500 m grid.</p><div class="stat"><span>Relief<b>1,141 m</b></span><span>Median slope<b>1.37°</b></span></div></div></section>
   <section><div class="card"><div class="eyebrow">Earth twin for Mars · Askja, Iceland</div><h2>Then find its <em>twin.</em></h2><p>Same window, same grid, nine real Earth analogs. Askja, where Apollo astronauts trained in geology, comes out closest.</p><div class="stat"><span>Terrain distance<b id="scoreMars">0.00</b></span><span>vs Hanksville<b>0.47</b></span></div></div></section>
   <section class="r"><div class="card"><div class="eyebrow">Moon · Shackleton crater rim</div><h2>Now the <em>Moon.</em></h2><p>NASA LRO laser-altimeter data at the lunar south pole, where Artemis plans a base camp: 4,577 m of relief and slopes far steeper than Jezero.</p><div class="stat"><span>Relief<b>4,577 m</b></span><span>Median slope<b>19.6°</b></span></div></div></section>

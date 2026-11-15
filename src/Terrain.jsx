@@ -53,7 +53,7 @@ export default function Terrain({ onContinue, targetId, onTarget }) {
   const shown = [target, ...ranked];
   return <section>
     <div className="intro"><p className="eyebrow">STEP 1 · TERRAIN COMPARISON</p><h1>Find the Earth twin of a {target.planet} base site</h1>
-      <p>Pick a permanent base target on the Moon or Mars. BaseScout ranks {earth.length} real Earth analog sites against it, using 25 × 25 km elevation windows on a common 500 m grid from NASA and SRTM data.</p></div>
+      <p>Pick a permanent base target on the Moon or Mars. Knowwhere ranks {earth.length} real Earth analog sites against it, using 25 × 25 km elevation windows on a common 500 m grid from NASA and SRTM data.</p></div>
     <div className="target-picker" role="tablist" aria-label="Base target">
       {targets.map(t => <button key={t.id} type="button" role="tab" aria-selected={t.id === target.id} onClick={() => onTarget?.(t.id)}>
         <MiniPlanet kind={t.planet.toLowerCase()}/><span>{t.planet}</span><b>{short(t.name)}</b>

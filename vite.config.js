@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 
-// Two pages: index.html is the landing page, app.html is the BaseScout app (served at /app).
+// Two pages: index.html is the landing page, app.html is the Knowwhere app (served at /app).
 export default defineConfig({
   build: {
     target: 'es2022', // the landing page uses top-level await

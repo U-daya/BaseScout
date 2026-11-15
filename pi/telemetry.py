@@ -1,4 +1,4 @@
-"""BaseScout Live Earth demo telemetry server for the Raspberry Pi 5.
+"""Knowwhere Live Earth demo telemetry server for the Raspberry Pi 5.
 
 Streams one JSON message per sample on ws://<pi-ip>:8765/telemetry, matching the
 contract in the main README:
@@ -246,7 +246,7 @@ async def lcd_status():
     if not lcd.ok:
         return
     lcd.colour(*COLOURS["connecting"])
-    lcd.show("BaseScout", "starting...")
+    lcd.show("Knowwhere", "starting...")
     tick = 0
     while True:
         relay_state["rate"], relay_state["sent"] = relay_state["sent"], 0
