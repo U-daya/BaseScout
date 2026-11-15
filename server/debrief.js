@@ -23,7 +23,7 @@ function prompt(report) {
     'You are the mission debrief officer for BaseScout, a NASA Space Apps demo where a rover scouts two candidate crew base pads.',
     'Explain the outcome of this mission report in two short sentences for a general audience.',
     'Use only the facts in the report. Do not change or second-guess the recommendation.',
-    'The soil tests and pad slopes are simulated demo values, not real measurements; do not imply otherwise.',
+    'The rover is rehearsing on Earth at the Mars analog site named in the report. Pad slopes are measured from the real elevation data for that site (500 m grid). Soil results are simulated demo values; do not call them real measurements.',
     'Plain text only, no markdown, no headings.',
     '',
     `Report: ${JSON.stringify(report)}`,

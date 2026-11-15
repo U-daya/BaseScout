@@ -121,13 +121,13 @@ export default function Terrain3D({ sites, root }) {
     <div className="panel-head">
       <h2>3D relief</h2>
       <div className="segmented" role="tablist" aria-label="Site">
-        {sites.map(s => <button key={s.id} type="button" role="tab" aria-selected={s.id === active} onClick={() => setActive(s.id)}>{s.name.split(',')[0]}</button>)}
+        {sites.map(s => <button key={s.id} type="button" role="tab" aria-selected={s.id === active} onClick={() => setActive(s.id)}>{s.name.split(',')[0].replace(' Crater','').replace(' lava field','')}</button>)}
       </div>
     </div>
     <div className="relief-view" ref={mount} aria-label={`3D relief of ${site?.name}. Drag to rotate, scroll to zoom.`}>
       {error && <p>3D view unavailable in this browser.</p>}
       <span className="relief-tag">{site?.name} · {site?.planet} · relief {Math.round(site?.relief ?? 0).toLocaleString()} m</span>
     </div>
-    <p className="muted">25 × 25 km window · vertical exaggeration ×{EXAGGERATION}, identical for all three sites so their relief compares directly · drag to rotate, scroll to zoom.</p>
+    <p className="muted">25 × 25 km window · vertical exaggeration ×{EXAGGERATION}, identical for every site so their relief compares directly · drag to rotate, scroll to zoom.</p>
   </section>;
 }

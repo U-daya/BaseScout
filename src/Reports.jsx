@@ -7,7 +7,7 @@ async function requestReport(path, options) {
   return body;
 }
 
-export function SaveMission({ padASoil }) {
+export function SaveMission({ siteId, targetId, order, padASoil, padBSoil, getTelemetry }) {
   const [id] = useState(() => crypto.randomUUID());
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -19,7 +19,7 @@ export function SaveMission({ padASoil }) {
       await requestReport('/api/missions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, padASoil }),
+        body: JSON.stringify({ id, siteId, targetId, order, padASoil, padBSoil, telemetry: getTelemetry?.() ?? undefined }),
       });
       setSaved(true);
     } catch (failure) {
@@ -62,9 +62,9 @@ export function MissionReport({ id }) {
     <main className="report">
       {!report ? <p className="panel" role="status">{error || 'Loading mission report…'}</p> : <>
         <div className="intro">
-          <p className="eyebrow">CREW BASE SITE SELECTION · SIMULATED</p>
+          <p className="eyebrow">{report.target ? `${report.target.planet.toUpperCase()} BASE` : 'CREW BASE'} SITE SELECTION · EARTH REHEARSAL</p>
           <h1>{report.recommendation ? `Recommend Pad ${report.recommendation}` : 'Neither pad qualifies'}</h1>
-          <p>Rover test site: Hanksville, Utah (Mars analog) · demo slope limit ≤ {report.slopeLimit}°</p>
+          <p>{report.target ? <>Rehearsing for <b>{report.target.name}</b> ({report.target.planet}) · </> : null}Earth test site: {report.site ?? 'Hanksville, Utah'} · slope limit ≤ {report.slopeLimit}° · slopes from real elevation data, soil results simulated</p>
         </div>
         <dl className="report-meta">
           <div><dt>Mission ID</dt><dd>{record.id.slice(0, 8)}</dd></div>
@@ -73,7 +73,7 @@ export function MissionReport({ id }) {
           <div><dt>Result</dt><dd className={report.recommendation ? 'ok' : 'bad'}>{report.recommendation ? `Pad ${report.recommendation}` : 'None'}</dd></div>
         </dl>
         <section className="panel">
-          <div className="panel-head"><h2>Test sequence</h2><span className="muted">Slope and soil values are simulated</span></div>
+          <div className="panel-head"><h2>Test sequence</h2><span className="muted">Measured slope · simulated soil</span></div>
           <table className="report-table">
             <thead><tr><th>Step</th><th>Pad</th><th>Slope</th><th>Soil sample</th><th>Outcome</th></tr></thead>
             <tbody>{report.tests.map((test, index) => {
@@ -88,6 +88,16 @@ export function MissionReport({ id }) {
             })}</tbody>
           </table>
         </section>
+        {report.telemetry && <section className="panel">
+          <div className="panel-head"><h2>Field telemetry at save time</h2><span className="muted">{report.telemetry.source}</span></div>
+          <dl className="report-meta">
+            <div><dt>Temperature</dt><dd>{report.telemetry.temp_c ?? '—'}{report.telemetry.temp_c != null && ' °C'}</dd></div>
+            <div><dt>Pressure</dt><dd>{report.telemetry.pressure_hpa ?? '—'}{report.telemetry.pressure_hpa != null && ' hPa'}</dd></div>
+            <div><dt>Light (raw)</dt><dd>{report.telemetry.light ?? '—'}</dd></div>
+            <div><dt>Air quality (raw)</dt><dd>{report.telemetry.air_quality ?? '—'}</dd></div>
+          </dl>
+          {report.telemetry.timestamp && <p className="muted" style={{marginTop:'.6rem'}}>Sample time {new Date(report.telemetry.timestamp).toLocaleString()}</p>}
+        </section>}
         {report.debrief?.text && <section className="panel debrief">
           <h2>Mission debrief</h2>
           <p>{report.debrief.text}</p>

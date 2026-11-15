@@ -12,6 +12,8 @@ Wants=network-online.target
 [Service]
 User=udaya
 Environment=PYTHONUNBUFFERED=1
+# Optional cloud relay settings (RELAY_URL, RELAY_TOKEN). The file is git-ignored.
+EnvironmentFile=-/home/udaya/BaseScout/pi/.env
 WorkingDirectory=/home/udaya/BaseScout
 ExecStart=/usr/bin/python3 /home/udaya/BaseScout/pi/telemetry.py
 Restart=on-failure

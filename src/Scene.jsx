@@ -5,10 +5,27 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { Sky } from 'three/addons/objects/Sky.js';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { pads, start, nearPad } from './mission';
+import { padsFor, start, nearPad, defaultSite, siteName } from './mission';
+
+// The active site's pads; set when the Scene mounts (it remounts when the site changes).
+let pads = padsFor(defaultSite);
+
+// How each analog site looks: ground tint over the soil texture, rock tint, sky and haze.
+export const LOOKS = {
+  mojave: { ground: '#e9cfa9', rocks: '#b48e6c', haze: '#b9cbe0', turbidity: 2, rayleigh: 3, exposure: .45, plants: { count: 260, color: '#55623c', size: .5 } },
+  utah: { ground: '#c4b8ad', rocks: '#9c8a80', haze: '#b6c8dc', turbidity: 2.2, rayleigh: 3, exposure: .45, plants: { count: 120, color: '#6a7046', size: .4 } },
+  holuhraun: { ground: '#4f4a48', rocks: '#2f2c2b', haze: '#aebccb', turbidity: 4, rayleigh: 3, exposure: .55, plants: { count: 380, color: '#6c7656', size: .35, flat: true } },
+  devon: { ground: '#9b9389', rocks: '#716a64', haze: '#c3d2e2', turbidity: 2.5, rayleigh: 3.2, exposure: .5, plants: { count: 240, color: '#7a7a5e', size: .3, flat: true } },
+  riotinto: { ground: '#c46c45', rocks: '#8f472e', haze: '#bfcbd8', turbidity: 2.4, rayleigh: 2.8, exposure: .45, plants: { count: 180, color: '#5d6b3d', size: .55 } },
+  askja: { ground: '#6e6662', rocks: '#4a4441', haze: '#b4c2d0', turbidity: 3.5, rayleigh: 3, exposure: .52, plants: { count: 140, color: '#6f7756', size: .3, flat: true } },
+  maunakea: { ground: '#7b4a3a', rocks: '#4d2f27', haze: '#b2c6dc', turbidity: 1.6, rayleigh: 3.2, exposure: .48, plants: { count: 30, color: '#6b6f4c', size: .3 } },
+  meteorcrater: { ground: '#d6bf9c', rocks: '#a88c6c', haze: '#b9cbe0', turbidity: 2, rayleigh: 3, exposure: .44, plants: { count: 160, color: '#68704a', size: .4 } },
+  atacama: { ground: '#eee3d4', rocks: '#c4ae98', haze: '#bdcde0', turbidity: 1.8, rayleigh: 2.8, exposure: .4, plants: { count: 25, color: '#6f7350', size: .3 } },
+};
 
 const keysByAxis = { KeyW: [0,1], ArrowUp: [0,1], KeyS: [0,-1], ArrowDown: [0,-1], KeyA: [-1,0], ArrowLeft: [-1,0], KeyD: [1,0], ArrowRight: [1,0] };
 const ROVER_LENGTH = 1.8;
+const ROVER_RADIUS = .8;
 const MAX_SPEED = 6;
 const HAZE = '#c9c3b9';
 
@@ -100,9 +117,9 @@ function soilTextures(size, anisotropy) {
     const shade = .62 + broad * .62 + (grit - .5) * .16 - pebble * .12;
     const warm = fbm(noise, u * 4 + 17, v * 4 + 17, 3);
     const i = (y * size + x) * 4;
-    albedo.data[i] = 255 * Math.min(1, shade * (.62 + warm * .1));
-    albedo.data[i + 1] = 255 * Math.min(1, shade * (.44 + warm * .05));
-    albedo.data[i + 2] = 255 * Math.min(1, shade * (.31 - warm * .03));
+    albedo.data[i] = 255 * Math.min(1, shade * (.5 + warm * .04));
+    albedo.data[i + 1] = 255 * Math.min(1, shade * (.48 + warm * .03));
+    albedo.data[i + 2] = 255 * Math.min(1, shade * (.45 - warm * .02));
     albedo.data[i + 3] = 255;
   }
   const at = (x, y) => height[((y + size) % size) * size + (x + size) % size];
@@ -129,24 +146,26 @@ function soilTextures(size, anisotropy) {
 const signed = (value, digits = 1) => `${value < 0 ? '−' : '+'}${Math.abs(value).toFixed(digits).padStart(digits + 3, '0')}`;
 const clock = seconds => [seconds / 3600, seconds / 60 % 60, seconds % 60].map(n => String(Math.floor(n)).padStart(2, '0')).join(':');
 
-export default function Scene({ target, recommendation, joystick, onArrival, paused, locked, modelUrl, tune, showBounds, onModelStatus }) {
+export default function Scene({ site = defaultSite, testable = ['A', 'B'], failed = [], done = false, recommendation, joystick, onArrival, paused, locked, modelUrl, tune, showBounds, onModelStatus }) {
   const mount = useRef(null);
   const state = useRef({});
   const loader = useRef(null);
-  state.current = { target, recommendation, joystick, onArrival, paused, locked, tune, showBounds, onModelStatus };
+  state.current = { testable, failed, done, recommendation, joystick, onArrival, paused, locked, tune, showBounds, onModelStatus };
   const [error, setError] = useState(false);
   useEffect(() => {
     const host = mount.current;
+    pads = padsFor(site);
+    const siteLook = LOOKS[site] ?? LOOKS[defaultSite];
     let renderer;
     try { renderer = new THREE.WebGLRenderer({ antialias: true }); }
     catch { setError(true); return; }
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = .4;
+    renderer.toneMappingExposure = siteLook.exposure;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     const scene = new THREE.Scene();
-    scene.fog = new THREE.Fog(HAZE, 70, 380);
+    scene.fog = new THREE.Fog(siteLook.haze, 70, 380);
     const camera = new THREE.PerspectiveCamera(40, 1.6, .1, 1500);
     host.append(renderer.domElement);
     const resize = new ResizeObserver(() => {
@@ -163,9 +182,9 @@ export default function Scene({ target, recommendation, joystick, onArrival, pau
     const sunDirection = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(56), THREE.MathUtils.degToRad(-58));
     const sky = new Sky();
     sky.scale.setScalar(1000);
-    sky.material.uniforms.turbidity.value = 4.5;
-    sky.material.uniforms.rayleigh.value = 1.3;
-    sky.material.uniforms.mieCoefficient.value = .004;
+    sky.material.uniforms.turbidity.value = siteLook.turbidity;
+    sky.material.uniforms.rayleigh.value = siteLook.rayleigh;
+    sky.material.uniforms.mieCoefficient.value = .0025;
     sky.material.uniforms.mieDirectionalG.value = .82;
     sky.material.uniforms.sunPosition.value.copy(sunDirection);
     const pmrem = new THREE.PMREMGenerator(renderer);
@@ -207,7 +226,7 @@ export default function Scene({ target, recommendation, joystick, onArrival, pau
     ground.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     ground.computeVertexNormals();
     ground.computeBoundingSphere();
-    const groundMesh = new THREE.Mesh(ground, new THREE.MeshStandardMaterial({ map: soilMap, normalMap: soilNormal, normalScale: new THREE.Vector2(1, 1), vertexColors: true, roughness: .96, metalness: 0 }));
+    const groundMesh = new THREE.Mesh(ground, new THREE.MeshStandardMaterial({ map: soilMap, normalMap: soilNormal, normalScale: new THREE.Vector2(1, 1), vertexColors: true, roughness: .96, metalness: 0, color: siteLook.ground }));
     groundMesh.receiveShadow = true;
     scene.add(groundMesh);
 
@@ -229,7 +248,7 @@ export default function Scene({ target, recommendation, joystick, onArrival, pau
     }
     rockGeometry.setAttribute('uv', new THREE.Float32BufferAttribute(rockUv, 2));
     rockGeometry.computeVertexNormals();
-    const rocks = new THREE.InstancedMesh(rockGeometry, new THREE.MeshStandardMaterial({ map: soilMap, normalMap: soilNormal, normalScale: new THREE.Vector2(1.6, 1.6), roughness: .9 }), rockCount);
+    const rocks = new THREE.InstancedMesh(rockGeometry, new THREE.MeshStandardMaterial({ map: soilMap, normalMap: soilNormal, normalScale: new THREE.Vector2(1.6, 1.6), roughness: .9, color: siteLook.rocks }), rockCount);
     rocks.castShadow = rocks.receiveShadow = true;
     const matrix = new THREE.Matrix4(), position = new THREE.Vector3(), quaternion = new THREE.Quaternion(), scale = new THREE.Vector3(), euler = new THREE.Euler();
     let placed = 0;
@@ -246,6 +265,36 @@ export default function Scene({ target, recommendation, joystick, onArrival, pau
       placed++;
     }
     scene.add(rocks);
+
+    // Solid obstacles the rover can't drive through (shrubs). Flat moss/lichen stays drivable.
+    const obstacles = [];
+    const plantSpec = siteLook.plants;
+    if (plantSpec?.count) {
+      const plantGeo = mergeVertices((() => { const g = new THREE.IcosahedronGeometry(1, 2); g.deleteAttribute('normal'); g.deleteAttribute('uv'); return g; })());
+      const pp = plantGeo.attributes.position;
+      for (let i = 0; i < pp.count; i++) {
+        const x = pp.getX(i), y = pp.getY(i), z = pp.getZ(i);
+        const bump = .75 + .5 * fbm(terrainNoise, x * 2.3 + 5, z * 2.3 + y * 1.7 + 5, 3);
+        pp.setXYZ(i, x * bump, Math.max(y, -.2) * bump, z * bump);
+      }
+      plantGeo.computeVertexNormals();
+      const plants = new THREE.InstancedMesh(plantGeo, new THREE.MeshStandardMaterial({ color: plantSpec.color, roughness: .95, flatShading: false }), plantSpec.count);
+      plants.castShadow = !plantSpec.flat; plants.receiveShadow = true;
+      const prand = mulberry32(site.length * 7919 + 17);
+      for (let i = 0; i < plantSpec.count; i++) {
+        let x, z;
+        do { x = (prand() - .5) * 70; z = (prand() - .5) * 56 - 6; }
+        while (Object.values(pads).some(pad => Math.hypot(x - pad.x, z - pad.z) < 3) || Math.hypot(x - start.x, z - start.z) < 2.2);
+        const size = plantSpec.size * (.45 + prand() * .9);
+        position.set(x, groundHeight(x, z) + (plantSpec.flat ? .01 : size * .25), z);
+        quaternion.setFromEuler(euler.set(0, prand() * 6.28, 0));
+        scale.set(size * (1 + prand() * .6), plantSpec.flat ? size * .08 : size * (.55 + prand() * .35), size * (1 + prand() * .6));
+        plants.setMatrixAt(i, matrix.compose(position, quaternion, scale));
+        if (!plantSpec.flat) obstacles.push({ x, z, r: Math.max(scale.x, scale.z) * .85 });
+        plants.setColorAt(i, tint.set(plantSpec.color).offsetHSL((prand() - .5) * .04, (prand() - .5) * .1, (prand() - .5) * .08));
+      }
+      scene.add(plants);
+    }
 
     // Pads
     const up = new THREE.Vector3(0, 1, 0);
@@ -367,7 +416,7 @@ export default function Scene({ target, recommendation, joystick, onArrival, pau
     // Camera-feed readouts
     const hud = name => { const el = document.createElement('div'); el.className = `hud ${name}`; host.append(el); return el; };
     const hudTitle = hud('tl'), hudClock = hud('tr'), hudPose = hud('bl'), hudTarget = hud('br');
-    hudTitle.textContent = 'SIM · HANKSVILLE TEST FIELD\nNAV CAM · 1 UNIT = 1 M';
+    hudTitle.textContent = `SIM · ${siteName(site).toUpperCase()}\nEARTH ANALOG TEST FIELD · 1 UNIT = 1 M`;
 
     const keys = new Set();
     const clear = () => keys.clear();
@@ -396,7 +445,7 @@ export default function Scene({ target, recommendation, joystick, onArrival, pau
       const real = lastTime ? (time - lastTime) / 1000 : 0;
       const dt = Math.min(real, .05);
       lastTime = time;
-      const { target, recommendation, joystick, onArrival, paused, locked, tune, showBounds } = state.current;
+      const { testable, failed, done, recommendation, joystick, onArrival, paused, locked, tune, showBounds } = state.current;
       if (paused) { clear(); return; }
       elapsed += Math.min(real, 1);
       const tuneKey = JSON.stringify(tune ?? defaultTune);
@@ -426,6 +475,15 @@ export default function Scene({ target, recommendation, joystick, onArrival, pau
         const step = speed * dt;
         rover.position.x = THREE.MathUtils.clamp(rover.position.x + velocity.x * dt, -15, 15);
         rover.position.z = THREE.MathUtils.clamp(rover.position.z - velocity.y * dt, -11, 11);
+        // Push the rover back out of any shrub it drives into, so it slides around instead of through.
+        for (const o of obstacles) {
+          const ox = rover.position.x - o.x, oz = rover.position.z - o.z, d = Math.hypot(ox, oz), min = o.r + ROVER_RADIUS;
+          if (d < min && d > 1e-4) {
+            rover.position.x = o.x + ox / d * min; rover.position.z = o.z + oz / d * min;
+            const nx = ox / d, nz = oz / d, into = velocity.x * -nx + velocity.y * nz; // velocity.y maps to -z
+            if (into > 0) { velocity.x += nx * into; velocity.y -= nz * into; }
+          }
+        }
         if (input.lengthSq()) {
           const goal = Math.atan2(-input.x, input.y);
           const delta = Math.atan2(Math.sin(goal - heading), Math.cos(goal - heading));
@@ -461,12 +519,13 @@ export default function Scene({ target, recommendation, joystick, onArrival, pau
       sun.target.position.copy(look);
       sun.position.copy(look).addScaledVector(sunDirection, 60);
 
-      const arrived = nearPad(rover.position, pads[target]);
-      if (previousArrival !== arrived) { previousArrival = arrived; onArrival(arrived); }
+      // Which untested pad (if any) the rover is parked in; either pad can be tested.
+      const near = done ? null : testable.find(id => nearPad(rover.position, pads[id])) ?? null;
+      if (previousArrival !== near) { previousArrival = near; onArrival(near); }
       for (const [id, pad] of Object.entries(pads)) {
-        const color = id === recommendation ? '#8fe6aa' : id === target ? '#ffb86b' : '#c9d3dc';
+        const color = id === recommendation ? '#8fe6aa' : failed.includes(id) ? '#ff9a7a' : testable.includes(id) ? '#ffb86b' : '#c9d3dc';
         rings[id].material.color.set(color);
-        rings[id].scale.setScalar(locked && id === target ? 1 + .035 * Math.sin(time / 110) : 1);
+        rings[id].scale.setScalar(locked && id === near ? 1 + .035 * Math.sin(time / 110) : 1);
         marker.set(pad.x, .4, pad.z - 2.7).project(camera);
         labels[id].style.display = marker.z > 1 ? 'none' : '';
         labels[id].style.left = `${(marker.x + 1) * 50}%`;
@@ -476,15 +535,14 @@ export default function Scene({ target, recommendation, joystick, onArrival, pau
 
       if (time - hudAt > 100) {
         hudAt = time;
-        const pad = pads[target];
-        const range = Math.hypot(rover.position.x - pad.x, rover.position.z - pad.z);
+        const goal = testable.map(id => [id, Math.hypot(rover.position.x - pads[id].x, rover.position.z - pads[id].z)]).sort((a, b) => a[1] - b[1])[0];
         const compass = ((THREE.MathUtils.radToDeg(-heading) % 360) + 360) % 360;
         const slope = THREE.MathUtils.radToDeg(Math.acos(Math.min(1, normal.y)));
         hudClock.textContent = `MET ${clock(elapsed)}\nINPUT ${source}`;
         hudPose.textContent = `E ${signed(rover.position.x)} m   N ${signed(-rover.position.z)} m\nHDG ${String(Math.round(compass) % 360).padStart(3, '0')}°   SPD ${speed.toFixed(1)} m/s`;
-        hudTarget.textContent = recommendation
-          ? `SITE SELECTED · PAD ${recommendation}\nGROUND SLOPE ${slope.toFixed(1)}°`
-          : `TARGET PAD ${target} · RANGE ${range.toFixed(1)} m${arrived ? ' · IN RING' : ''}\nGROUND SLOPE ${slope.toFixed(1)}°`;
+        hudTarget.textContent = recommendation ? `SITE SELECTED · PAD ${recommendation}\nGROUND SLOPE ${slope.toFixed(1)}°`
+          : done || !goal ? `NO PAD QUALIFIES\nGROUND SLOPE ${slope.toFixed(1)}°`
+          : `NEAREST PAD ${goal[0]} · RANGE ${goal[1].toFixed(1)} m${near ? ' · IN RING' : ''}\nGROUND SLOPE ${slope.toFixed(1)}°`;
       }
       renderer.render(scene, camera);
     });

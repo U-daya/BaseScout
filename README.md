@@ -79,6 +79,48 @@ Leave the joystick untouched for the first second so its centre can be calibrate
 - At a hackathon, avoid `raspberrypi.local` because other teams' Pis use the same name. Use the IP address or a unique hostname.
 - Connect from the local app (`npm run dev`, then `http://127.0.0.1:5173`) with `ws://<pi-ip>:8765/telemetry`. The public `https` site cannot open `ws://`.
 
+## Cloud telemetry relay (Pi works from any network)
+
+The Pi pushes every sample to the public site, so anyone opening https://basescout.basescout-team.workers.dev sees live readings and joystick input. The Pi and the viewer do not need to share Wi-Fi, and no tunnel is needed. A Cloudflare Durable Object inside the existing Worker relays the samples (`worker.js`, `TelemetryRelay`):
+
+- The Pi connects to `wss://<site>/api/telemetry/push` with `Authorization: Bearer <TELEMETRY_TOKEN>`. Pushes without the token are rejected.
+- Browsers connect to `wss://<site>/api/telemetry/live`. The live site does this automatically. Viewers are read-only, so a browser cannot inject joystick data.
+- The direct local connection (`ws://<pi-ip>:8765/telemetry`) still works as a fallback.
+
+**One-time setup**
+
+1. Generate a token on any machine. Keep it out of git and chat.
+
+   ```bash
+   python -c "import secrets; print(secrets.token_urlsafe(32))"
+   ```
+
+2. From the project folder, store it as a Worker secret and deploy. The deploy also creates the relay:
+
+   ```bash
+   npx wrangler@latest secret put TELEMETRY_TOKEN
+   npm run build
+   npx wrangler@latest deploy
+   ```
+
+3. On the Pi, create `~/BaseScout/pi/.env` (git-ignored) with:
+
+   ```
+   RELAY_URL=wss://basescout.basescout-team.workers.dev/api/telemetry/push
+   RELAY_TOKEN=<the same token>
+   ```
+
+4. Update and restart the service on the Pi:
+
+   ```bash
+   cd ~/BaseScout && git pull
+   sudo cp pi/basescout-telemetry.service /etc/systemd/system/ && sudo systemctl daemon-reload
+   sudo systemctl restart basescout-telemetry
+   journalctl -u basescout-telemetry -n 10 --no-pager
+   ```
+
+   The log should show `Cloud relay connected`. The Pi only needs internet access, so a phone hotspot works.
+
 ## Sponsor integrations
 
 | Service | Role | Config |

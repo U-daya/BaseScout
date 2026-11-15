@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BaseScout · Concept D · Rover</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#09090a;--ink:#f0eae2;--muted:#938a83;--accent:#ffb86b;--line:rgba(255,255,255,.14);--mono:'IBM Plex Mono',monospace}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif}
+canvas#gl{position:fixed;inset:0;width:100vw;height:100vh;display:block}
+.top{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:22px 28px;z-index:5;font:500 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.brand{display:flex;gap:10px;align-items:center;font:600 15px 'IBM Plex Sans';letter-spacing:0;text-transform:none;color:var(--ink)}
+.brand svg{width:18px;height:18px;fill:none;stroke:var(--accent);stroke-width:1.4}
+#labels{position:fixed;inset:0;z-index:3;pointer-events:none}
+#labels svg{position:absolute;inset:0;width:100%;height:100%}
+.callout{position:absolute;font:500 11px/1.45 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink);white-space:nowrap;transition:opacity .35s;opacity:0}
+.callout b{display:block;color:var(--accent);font-weight:500}
+main{position:relative;z-index:4}
+section{height:115vh;display:flex;align-items:center;padding:0 7vw;pointer-events:none}
+section .card{max-width:440px;pointer-events:auto;opacity:0;transform:translateY(28px);transition:opacity .8s cubic-bezier(.2,.7,.2,1),transform .8s cubic-bezier(.2,.7,.2,1)}
+section.on .card,main section:first-child .card{opacity:1;transform:none}
+section.r{justify-content:flex-end}
+.eyebrow{font:500 11px var(--mono);letter-spacing:.2em;color:var(--accent);text-transform:uppercase}
+h1{font:600 clamp(48px,8vw,124px)/.88 'IBM Plex Sans';letter-spacing:-.055em;margin:16px 0}
+h2{font:600 clamp(30px,4vw,56px)/1 'IBM Plex Sans';letter-spacing:-.04em;margin:12px 0}
+p{color:var(--muted);font-size:17px;line-height:1.6;margin:0}
+h1,h2,p{text-shadow:0 2px 26px rgba(0,0,0,.85)}
+.cta{display:inline-flex;gap:12px;margin-top:28px}
+.cta a{font:500 14px 'IBM Plex Sans';color:#1b1410;background:var(--accent);padding:14px 22px;border-radius:3px;text-decoration:none}
+.cta a.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.prog{position:fixed;left:28px;bottom:28px;z-index:5;font:500 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.prog b{color:var(--ink);font-weight:500}
+.prog i{display:block;width:180px;height:2px;background:var(--line);margin-top:10px;position:relative}
+.prog i::after{content:'';position:absolute;inset:0;background:var(--accent);transform-origin:left;transform:scaleX(var(--p,0))}
+</style></head><body>
+<canvas id="gl"></canvas>
+<div id="labels"><svg id="leaders"></svg></div>
+<div class="top"><span class="brand"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5"/><circle cx="10" cy="10" r="2.2" style="fill:var(--accent);stroke:none"/><path d="M10 0v4M10 16v4M0 10h4M16 10h4"/></svg>BaseScout</span><span>NASA Space Apps · NYC 2026</span></div>
+<div class="prog" id="prog"></div>
+<main>
+  <section><div class="card"><div class="eyebrow">Mission 01 · Crew base scout</div><h1>Meet the<br>scout.</h1><p>A six-wheel rover that drives to candidate base sites, measures the slope and tests the soil before anyone lands.</p></div></section>
+  <section class="r"><div class="card"><div class="eyebrow">Mobility</div><h2>Rocker-bogie suspension.</h2><p>Six independently driven wheels keep contact with uneven ground, so the rover can climb rocks without tipping.</p></div></section>
+  <section><div class="card"><div class="eyebrow">Power and thermal</div><h2>Built to survive the cold.</h2><p>A solar deck on top, a radioisotope power unit at the rear, and gold thermal blankets around the electronics.</p></div></section>
+  <section class="r"><div class="card"><div class="eyebrow">Navigation</div><h2>Eyes two metres up.</h2><p>Stereo cameras on the mast map the ground ahead and pick a safe route to each pad.</p></div></section>
+  <section><div class="card"><div class="eyebrow">Systems</div><h2>Every part has a job.</h2><p>Body, mobility, power, navigation, sampling. In the demo, a real Raspberry Pi joystick drives it and live sensors report back.</p></div></section>
+  <section class="r"><div class="card"><div class="eyebrow">Touchdown · Jezero terrain</div><h2>Now, scout the base.</h2><p>Drive to Pad A, check the slope, test the soil. Reroute to Pad B if it fails.</p><div class="cta"><a href="#">Launch mission</a><a class="ghost" href="#">Compare terrain</a></div></div></section>
+</main>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gl'), antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x09090a);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), .04).texture; scene.environmentIntensity = .55;
+const camera = new THREE.PerspectiveCamera(30, 1, .05, 200);
+
+const key = new THREE.DirectionalLight(0xfff0dc, 3.4); key.position.set(4, 7, 3); key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048); Object.assign(key.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6, near: .5, far: 30 }); key.shadow.bias = -.0004; key.shadow.normalBias = .02;
+scene.add(key);
+const rim = new THREE.DirectionalLight(0xffb36b, 2.2); rim.position.set(-5, 3, -4); scene.add(rim);
+const fill = new THREE.DirectionalLight(0x9fb4ff, .35); fill.position.set(-3, 1, 5); scene.add(fill);
+
+function canvasTex(size, draw) { const c = document.createElement('canvas'); c.width = c.height = size; draw(c.getContext('2d'), size); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; }
+// NASA/JPL-Caltech Perseverance model (public 3D resource), lit by a CC0 studio HDRI.
+const rover = new THREE.Group(); scene.add(rover);
+const parts = {}, allParts = [], wheels = [], bogies = [];
+let head = new THREE.Group();
+new RGBELoader().load('assets/studio.hdr', hdr => { hdr.mapping = THREE.EquirectangularReflectionMapping; scene.environment = pmrem.fromEquirectangular(hdr).texture; scene.environmentIntensity = .9; hdr.dispose(); });
+const loaded = new Promise(resolve => new GLTFLoader().load('assets/perseverance.glb', ({ scene: model }) => {
+  model.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; if (o.material) { o.material.envMapIntensity = 1; } } });
+  const box3 = new THREE.Box3().setFromObject(model), size = box3.getSize(new THREE.Vector3());
+  const scale = 3 / Math.max(size.x, size.z); model.scale.setScalar(scale);
+  const b2 = new THREE.Box3().setFromObject(model), c2 = b2.getCenter(new THREE.Vector3());
+  model.position.set(-c2.x, -b2.min.y, -c2.z);
+  rover.add(model); rover.updateMatrixWorld(true);
+  const centre = new THREE.Box3().setFromObject(model).getCenter(new THREE.Vector3());
+  for (const child of [...model.children]) {
+    const cb = new THREE.Box3().setFromObject(child); if (cb.isEmpty()) continue;
+    const cc = cb.getCenter(new THREE.Vector3()), dir = cc.clone().sub(centre); dir.y = Math.max(dir.y, 0) + .15;
+    const dist = dir.length(); dir.normalize().multiplyScalar(.55 + dist * .9);
+    child.userData.home = child.position.clone();
+    child.userData.explodeWorld = dir;
+    allParts.push(child); parts[child.name] = child;
+  }
+  model.traverse(o => { if (o.name === 'head') head = o; if (o.isMesh || o.isGroup) parts[o.name] = parts[o.name] || o; });
+  resolve(model);
+}));
+const modelRoot = await loaded;
+const toLocal = new THREE.Matrix4().copy(modelRoot.matrixWorld).invert();
+
+// soft contact shadow + studio floor
+const floor = new THREE.Mesh(new THREE.CircleGeometry(30, 64), new THREE.ShadowMaterial({ opacity: .55 })); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+const glow = new THREE.Mesh(new THREE.CircleGeometry(5, 64), new THREE.MeshBasicMaterial({ map: canvasTex(256, (g, s) => { const r = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); r.addColorStop(0, 'rgba(255,184,107,.22)'); r.addColorStop(1, 'rgba(255,184,107,0)'); g.fillStyle = r; g.fillRect(0, 0, s, s); }), transparent: true, depthWrite: false }));
+glow.rotation.x = -Math.PI / 2; glow.position.y = .002; scene.add(glow);
+const ring = new THREE.Mesh(new THREE.RingGeometry(3.0, 3.015, 160), new THREE.MeshBasicMaterial({ color: 0xffb86b, transparent: true, opacity: .35 })); ring.rotation.x = -Math.PI / 2; ring.position.y = .003; scene.add(ring);
+
+// Jezero terrain that fades in for touchdown
+const rel = r => r <= 149 ? Math.max(0, (r - 61) / 88) * .5 : .5 + Math.min(1, (r - 149) / 94) * .5;
+const terrain = new THREE.Mesh(new THREE.PlaneGeometry(40, 40, 160, 160), new THREE.MeshStandardMaterial({ color: 0xb8714d, roughness: .97, transparent: true, opacity: 0 }));
+terrain.rotation.x = -Math.PI / 2; terrain.receiveShadow = true; scene.add(terrain);
+{ const im = new Image(); im.onload = () => { const c = document.createElement('canvas'); c.width = c.height = 161; const x = c.getContext('2d'); x.drawImage(im, 0, 0, 161, 161); const d = x.getImageData(0, 0, 161, 161).data; const p = terrain.geometry.attributes.position; for (let i = 0; i < p.count; i++) { const gx = i % 161, gy = i / 161 | 0; const r = Math.hypot(gx - 80, gy - 80), f0 = Math.min(1, Math.max(0, (r - 10) / 30)), fall = f0 * f0 * (3 - 2 * f0); p.setZ(i, rel(d[i * 4]) * 1.6 * fall - .01); } p.needsUpdate = true; terrain.geometry.computeVertexNormals(); }; im.src = 'terrain/jezero.png'; }
+
+// dust ring for the landing
+const dustN = 600, dustGeo = new THREE.BufferGeometry(), dustPos = new Float32Array(dustN * 3), dustDir = [];
+for (let i = 0; i < dustN; i++) { const a = Math.random() * Math.PI * 2; dustDir.push([Math.cos(a), Math.sin(a), .6 + Math.random() * .8]); }
+dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ color: 0xd59a6c, size: .035, transparent: true, opacity: 0, depthWrite: false })); scene.add(dust);
+
+// camera choreography: [t, camPos, target, fov, roverYaw, hover, explode, flex]
+const YAW0 = 0;
+const headWorld = new THREE.Vector3(0, 2, 0);
+const K = () => [
+  [0.00, [5.6, 2.4, 6.6], [-1.1, 1.15, .4], 30, YAW0 + 2.55, .45, 0, 0],
+  [0.17, [7.6, 1.3, .6], [0, .85, -1.0], 26, YAW0 + Math.PI, .4, 0, 1],
+  [0.34, [.4, 13.5, 2.2], [0, .8, 0], 30, YAW0 + 4.0, .38, 0, 0],
+  [0.50, [headWorld.x + .5, headWorld.y + .15, headWorld.z + 1.5], [headWorld.x, headWorld.y, headWorld.z], 24, YAW0 + Math.PI, .42, 0, 0],
+  [0.68, [8.6, 5.0, 9.2], [-.6, 1.4, 0], 30, YAW0 + 2.3, .6, 1, 0],
+  [0.86, [10.6, 3.6, 10.2], [0, 1.0, 0], 30, YAW0 + 2.75, 0, 0, 0],
+  [1.00, [9.0, 2.9, 8.8], [0, .9, 1], 32, YAW0 + 2.75, 0, 0, 0],
+];
+const ease = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+function sample(t) { const KK = K(); let i = 0; while (i < KK.length - 2 && t > KK[i + 1][0]) i++; const a = KK[i], b = KK[i + 1]; const f = ease(Math.min(1, Math.max(0, (t - a[0]) / (b[0] - a[0])))); const L = (u, v) => u + (v - u) * f; const V = (u, v) => u.map((x, k) => L(x, v[k])); return { cam: V(a[1], b[1]), tgt: V(a[2], b[2]), fov: L(a[3], b[3]), yaw: L(a[4], b[4]), hover: L(a[5], b[5]), explode: L(a[6], b[6]), flex: L(a[7], b[7]) }; }
+
+// callouts anchored to parts
+const C = [
+  { part: 'Wheels_objs', text: ['Mobility', '6 aluminium wheels'], show: [.12, .26], dx: 70, dy: 70 },
+  { part: 'suspension', text: ['Rocker-bogie', 'Passive suspension'], show: [.12, .26], dx: -180, dy: -80 },
+  { part: 'rtg', text: ['RTG', 'Power day and night'], show: [.29, .42], dx: 90, dy: 50 },
+  { part: 'antenna_hg', text: ['High-gain antenna', 'Direct to Earth'], show: [.29, .42], dx: -190, dy: -50 },
+  { part: 'head', text: ['Mast cameras', 'Stereo route planning'], show: [.45, .58], dx: 110, dy: -50 },
+  { part: 'head', text: ['Navigation', 'Mast and cameras'], show: [.62, .76], dx: 90, dy: -40 },
+  { part: 'Body', text: ['Body', 'Electronics and Pi link'], show: [.62, .76], dx: -200, dy: -30 },
+  { part: 'Wheels_objs', text: ['Mobility', 'Wheels and drive'], show: [.62, .76], dx: -170, dy: 70 },
+  { part: 'rtg', text: ['Power', 'Radioisotope unit'], show: [.62, .76], dx: 100, dy: 40 },
+  { part: 'antenna_hg', text: ['Comms', 'High-gain dish'], show: [.62, .76], dx: -180, dy: -80 },
+  { part: 'arm_01_joint', text: ['Sampling', 'Robotic arm'], show: [.62, .76], dx: 100, dy: 70 },
+];
+const labelsEl = document.getElementById('labels'), leaders = document.getElementById('leaders');
+for (const c of C) { c.el = document.createElement('div'); c.el.className = 'callout'; c.el.innerHTML = `<b>${c.text[0]}</b>${c.text[1]}`; labelsEl.appendChild(c.el); c.line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline'); c.line.setAttribute('fill', 'none'); c.line.setAttribute('stroke', 'rgba(255,184,107,.75)'); c.line.setAttribute('stroke-width', '1'); leaders.appendChild(c.line); c.dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle'); c.dot.setAttribute('r', '3'); c.dot.setAttribute('fill', '#ffb86b'); leaders.appendChild(c.dot); }
+
+function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+const secs = [...document.querySelectorAll('section')]; const io = new IntersectionObserver(es => es.forEach(e => e.target.classList.toggle('on', e.isIntersecting)), { threshold: .3 }); secs.forEach(s => io.observe(s));
+let target = 0, t = 0; const sc = () => { const m = document.documentElement.scrollHeight - innerHeight; target = m > 0 ? scrollY / m : 0; }; addEventListener('scroll', sc, { passive: true }); sc();
+let mx = 0, my = 0; addEventListener('pointermove', e => { mx = e.clientX / innerWidth - .5; my = e.clientY / innerHeight - .5; });
+const prog = document.getElementById('prog'); const names = ['Overview', 'Mobility', 'Power', 'Navigation', 'Systems', 'Touchdown'];
+const clock = new THREE.Clock(); const v = new THREE.Vector3(); let landedAt = -1;
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), .05), time = clock.elapsedTime;
+  t += (target - t) * (1 - Math.exp(-dt * 3.4));
+  if (head) new THREE.Box3().setFromObject(head).getCenter(headWorld);
+  const s = sample(t);
+  const bob = Math.sin(time * 1.6) * .035 * Math.min(1, s.hover / .3);
+  rover.position.y = s.hover + bob;
+  rover.rotation.y = s.yaw + Math.sin(time * .5) * .04 * (1 - s.explode);
+  rover.rotation.z = Math.sin(time * 1.1) * .012 * Math.min(1, s.hover / .3);
+  const ex = ease(s.explode);
+  for (const p of allParts) { const w = p.userData.explodeWorld.clone().multiplyScalar(ex).applyMatrix3(new THREE.Matrix3().setFromMatrix4(toLocal)); p.position.copy(p.userData.home).add(w); }
+  const drive = Math.max(0, (t - .9) / .1);
+  rover.position.x = -Math.sin(s.yaw) * drive * 1.8; rover.position.z = -Math.cos(s.yaw) * drive * 1.8;
+  camera.position.set(s.cam[0] + mx * .5, s.cam[1] - my * .3, s.cam[2]);
+  camera.fov = s.fov; camera.updateProjectionMatrix(); camera.lookAt(...s.tgt);
+  const land = Math.min(1, Math.max(0, (t - .74) / .1));
+  terrain.material.opacity = land; terrain.material.transparent = land < 1; terrain.visible = land > 0; floor.visible = land < .5; floor.material.opacity = .55; glow.material.opacity = 1 - land; ring.material.opacity = .35 * (1 - land);
+  terrain.position.y = -.02;
+  if (land >= 1 && s.hover < .02 && landedAt < 0) landedAt = time; if (s.hover > .05) landedAt = -1;
+  const dk = landedAt > 0 ? Math.min(1, (time - landedAt) / 1.6) : 0;
+  for (let i = 0; i < dustN; i++) { const d = dustDir[i]; const r = 1 + dk * 2.4 * d[2]; dustPos.set([d[0] * r, .05 + Math.sin(dk * Math.PI) * .25 * d[2], d[1] * r], i * 3); }
+  dustGeo.attributes.position.needsUpdate = true; dust.material.opacity = landedAt > 0 ? (1 - dk) * .8 : 0;
+  rover.updateMatrixWorld(true);
+  for (const c of C) {
+    const on = t > c.show[0] && t < c.show[1]; c.el.style.opacity = on ? 1 : 0; c.line.style.opacity = c.dot.style.opacity = on ? 1 : 0; if (!on) continue;
+    const obj = parts[c.part]; if (!obj) continue; new THREE.Box3().setFromObject(obj).getCenter(v); v.project(camera);
+    const x = (v.x + 1) / 2 * innerWidth, y = (1 - v.y) / 2 * innerHeight, lx = x + c.dx, ly = y + c.dy;
+    c.dot.setAttribute('cx', x); c.dot.setAttribute('cy', y);
+    c.line.setAttribute('points', `${x},${y} ${lx},${ly} ${lx + (c.dx > 0 ? 40 : -40)},${ly}`);
+    c.el.style.left = (c.dx > 0 ? lx + 46 : lx - 46 - c.el.offsetWidth) + 'px'; c.el.style.top = (ly - 14) + 'px';
+  }
+  const idx = Math.min(names.length - 1, Math.floor(t * names.length * .999));
+  prog.innerHTML = `0${idx + 1} / 0${names.length} · <b>${names[idx]}</b><i style="--p:${t.toFixed(3)}"></i>`;
+  renderer.render(scene, camera);
+});
+</script></body></html>

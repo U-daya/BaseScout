@@ -5,7 +5,10 @@ import ModelTuner, { ModelStatus } from './ModelTuner';
 import Terrain from './Terrain';
 import Telemetry from './Telemetry';
 import { SaveMission, MissionReport } from './Reports';
-import { pads, slopeLimit, soilDecision } from './mission';
+import { padsFor, slopeLimit, testPad, newMission, padIds, defaultSite, siteIds, siteName, baseTargets, defaultTarget } from './mission';
+
+const coord = (lat, lon) => `${Math.abs(lat).toFixed(3)}°${lat >= 0 ? 'N' : 'S'} ${Math.abs(lon).toFixed(3)}°${lon >= 0 ? 'E' : 'W'}`;
+const shortName = id => siteName(id).split(',')[0].replace(' Crater', '').replace(' lava field', '');
 import '@fontsource/ibm-plex-sans/400.css';
 import '@fontsource/ibm-plex-sans/500.css';
 import '@fontsource/ibm-plex-sans/600.css';
@@ -15,45 +18,41 @@ import './style.css';
 
 const SAMPLE_MS = 2600;
 
-const initial = { target:'A', recommendation:null, message:'Pad A starts as the favorite. Drive into its ring to sample the soil.' };
 const envModel = import.meta.env.VITE_ROVER_MODEL_URL;
 const initialModel = envModel ? { url: envModel, label: envModel.split('/').pop() } : null;
 
-function missionSteps(mission, arrived) {
-  const aFailed = mission.target === 'B';
-  const done = !!mission.recommendation;
-  const current = done ? 5 : aFailed ? (arrived ? 4 : 3) : (arrived ? 2 : 1);
+// Steps for a mission where either pad can be tested first.
+function missionSteps(mission, atPad) {
+  const [first, second] = mission.tests;
+  const other = first ? padIds.find(id => id !== first.pad) : null;
+  const needSecond = first && !mission.recommendation;
   const steps = [
-    { n:1, label:'Drive to Pad A' },
-    { n:2, label:'Test Pad A soil' },
-    { n:3, label:'Reroute to Pad B', branch:true },
-    { n:4, label:'Test Pad B soil', branch:true },
-    { n:5, label: done ? `Recommend Pad ${mission.recommendation}` : 'Recommendation' },
+    { n:1, label: first ? `Drive to Pad ${first.pad}` : 'Drive to a pad', state: first || atPad ? 'done' : 'current' },
+    { n:2, label: first ? `Test Pad ${first.pad} soil` : 'Test its soil', state: first ? 'done' : atPad ? 'current' : 'todo' },
+    { n:3, label: other ? `Drive to Pad ${other}` : 'Drive to the other pad', branch: true,
+      state: !first ? 'branch' : !needSecond ? 'skipped' : second || atPad ? 'done' : 'current' },
+    { n:4, label: other ? `Test Pad ${other} soil` : 'Test its soil', branch: true,
+      state: !first ? 'branch' : !needSecond ? 'skipped' : second ? 'done' : atPad ? 'current' : 'todo' },
+    { n:5, label: mission.done ? (mission.recommendation ? `Recommend Pad ${mission.recommendation}` : 'No pad qualifies') : 'Recommendation',
+      state: mission.done ? 'done' : 'todo' },
   ];
-  return steps.map(step => {
-    let state = step.n < current ? 'done' : step.n === current ? (done ? 'done' : 'current') : 'todo';
-    if (step.branch && done && !aFailed) state = 'skipped';
-    if (step.branch && !aFailed && !done) state = 'branch';
-    return { ...step, state };
-  });
+  return steps;
 }
 
-function StepTracker({ mission, arrived }) {
+function StepTracker({ mission, atPad }) {
   return <ol className="steps" aria-label="Mission progress">
-    {missionSteps(mission, arrived).map(step => <li key={step.n} className={step.state} aria-current={step.state === 'current' ? 'step' : undefined}>
+    {missionSteps(mission, atPad).map(step => <li key={step.n} className={step.state} aria-current={step.state === 'current' ? 'step' : undefined}>
       <span className="dot">{step.state === 'done' ? '✓' : step.n}</span>
-      <span>{step.label}{step.state === 'branch' && <small> if A fails</small>}{step.state === 'skipped' && <small> not needed</small>}</span>
+      <span>{step.label}{step.state === 'branch' && <small> if the first fails</small>}{step.state === 'skipped' && <small> not needed</small>}</span>
     </li>)}
   </ol>;
 }
 
-function Verdict({ mission, outcome }) {
-  const tests = [{ pad:'A', soil: outcome }];
-  if (mission.target === 'B') tests.push({ pad:'B', soil:'pass' });
-  return <div className="verdict" role="status">
+function Verdict({ mission, pads }) {
+  return <div className={`verdict${mission.recommendation ? '' : ' none'}`} role="status">
     <span className="eyebrow">MISSION RESULT</span>
-    <strong>Recommend Pad {mission.recommendation}</strong>
-    <ul>{tests.map(t => {
+    <strong>{mission.recommendation ? `Recommend Pad ${mission.recommendation}` : 'Neither pad qualifies'}</strong>
+    <ul>{mission.tests.map(t => {
       const slopeOk = pads[t.pad].slope <= slopeLimit;
       return <li key={t.pad}><b>Pad {t.pad}</b>
         <span className={slopeOk ? 'ok' : 'bad'}>{slopeOk ? '✓' : '✗'} slope {pads[t.pad].slope}° ≤ {slopeLimit}°</span>
@@ -79,9 +78,16 @@ function Credits() {
 
 function App() {
   const [tab,setTab] = useState('terrain');
-  const [mission,setMission] = useState(initial);
-  const [outcome,setOutcome] = useState('pass');
-  const [arrived,setArrived] = useState(false);
+  const [mission,setMission] = useState(newMission);
+  const [site,setSite] = useState(defaultSite);
+  const [targetId,setTargetId] = useState(defaultTarget);
+  const target = baseTargets[targetId];
+  const pads = padsFor(site);
+  const [soilA,setSoilA] = useState('pass');
+  const [soilB,setSoilB] = useState('pass');
+  const telemetry = useRef(null);
+  const onPacket = useCallback(p => { telemetry.current = p; }, []);
+  const [atPad,setAtPad] = useState(null);
   const [run,setRun] = useState(0);
   const [piStatus,setPiStatus] = useState('off');
   const [model,setModel] = useState(initialModel);
@@ -93,14 +99,15 @@ function App() {
   const objectUrl = useRef(null);
   const [sampling,setSampling] = useState(false);
   const sampleTimer = useRef(null);
-  function reset() { clearTimeout(sampleTimer.current); setSampling(false); setMission(initial); setArrived(false); setRun(n=>n+1); }
+  function reset() { clearTimeout(sampleTimer.current); setSampling(false); setMission(newMission()); setAtPad(null); setRun(n=>n+1); }
   function runTest() {
-    const pad = mission.target, soil = outcome;
+    const pad = atPad; if (!pad) return; const soil = pad === 'A' ? soilA : soilB;
     setSampling(true);
-    sampleTimer.current = setTimeout(() => { setSampling(false); setArrived(false); setMission(soilDecision(pad, soil)); }, SAMPLE_MS);
+    sampleTimer.current = setTimeout(() => { setSampling(false); setAtPad(null); setMission(m => testPad(pads, m, pad, soil)); }, SAMPLE_MS);
   }
   useEffect(() => () => clearTimeout(sampleTimer.current), []);
-  const goMission = () => { setTab('mission'); window.scrollTo({ top:0, behavior:'smooth' }); };
+  function changeSite(id) { if (id === site) return; setSite(id); reset(); }
+  const goMission = (id, tgt) => { if (tgt) setTargetId(tgt); if (id) changeSite(id); setTab('mission'); window.scrollTo({ top:0, behavior:'smooth' }); };
   const onModelStatus = useCallback(s => setModelStatus(s), []);
   function loadFile(file) {
     if (objectUrl.current) URL.revokeObjectURL(objectUrl.current);
@@ -122,11 +129,15 @@ function App() {
     <main>
       <div hidden={tab!=='mission'}>
         <div className="intro"><p className="eyebrow">STEP 2 · ROVER MISSION</p><h1>Scout a crew base</h1>
-          <p>Rover test site: <b>Hanksville, Utah</b>, the closest Mars analog from step 1. Drive to the active pad, check its slope, and test the soil. Field, pad slopes, and soil results are simulated.</p></div>
-        <StepTracker mission={mission} arrived={arrived}/>
+          <p>The rover rehearses a permanent-base survey for <b>{target.name}</b> ({target.planet}) at <b>{siteName(site)}</b>, a real analog site on Earth. Drive to the active pad, check its slope, and test the soil. Pad slopes are measured from this site's real elevation data; the 3D field and soil results are simulated.</p></div>
+        <div className="site-picker" role="tablist" aria-label="Test site">
+          <span>Test site</span>
+          {siteIds.map(id => <button key={id} type="button" role="tab" aria-selected={id === site} disabled={sampling} onClick={() => changeSite(id)}>{shortName(id)}</button>)}
+        </div>
+        <StepTracker mission={mission} atPad={atPad}/>
         <div className="mission-grid">
           <section className="panel field"><div className="panel-head"><h2>Scouting field</h2><span className="muted">Simulated terrain</span></div>
-            <Scene key={run} target={mission.target} recommendation={mission.recommendation} paused={tab!=='mission'} onArrival={setArrived} joystick={joystick} locked={sampling}
+            <Scene key={`${site}-${run}`} site={site} testable={mission.done ? [] : padIds.filter(id => !mission.tests.some(t => t.pad === id))} failed={mission.tests.filter(t => t.pad !== mission.recommendation).map(t => t.pad)} done={mission.done} recommendation={mission.recommendation} paused={tab!=='mission'} onArrival={setAtPad} joystick={joystick} locked={sampling}
               modelUrl={model} tune={tune} showBounds={showBounds} onModelStatus={onModelStatus}/>
             <div className="controls"><span><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or arrow keys · Pi joystick</span>
               <button type="button" className="link-button" onClick={()=>setTuning(t=>!t)}>{tuning ? 'Hide rover model' : 'Rover model…'}</button></div>
@@ -134,26 +145,33 @@ function App() {
           </section>
           <section className="panel plan">
             <div className="panel-head"><h2>Site decision</h2><button onClick={e=>{reset();e.currentTarget.blur();}}>Reset</button></div>
-            <div className="pad-cards">{Object.entries(pads).map(([id,pad])=><div key={id} className={mission.recommendation===id ? 'chosen-pad' : mission.target===id ? 'active-pad' : ''}><strong>Pad {id}</strong><span>{pad.slope}° slope</span></div>)}</div>
-            <p className="muted">Demo slope limit ≤ {slopeLimit}°</p>
-            {mission.recommendation ? <Verdict mission={mission} outcome={outcome}/> : <p className="decision" role="status">{sampling ? `Sampling soil at Pad ${mission.target}…` : mission.message}</p>}
-            <button className={`primary${sampling ? ' sampling' : ''}`} style={{'--sample-ms':`${SAMPLE_MS}ms`}} disabled={!arrived||!!mission.recommendation||sampling} onClick={e=>{runTest();e.currentTarget.blur();}}>{sampling ? `Sampling Pad ${mission.target} soil…` : `Test Pad ${mission.target} soil`}</button>
-            {!mission.recommendation && <small className="muted">{sampling ? 'Sampling in progress. Rover holding position.' : arrived ? 'Rover is in the ring. Run the test.' : `Drive into the Pad ${mission.target} ring to enable the test.`}</small>}
-            {mission.recommendation && <SaveMission key={run} padASoil={outcome}/>}
+            <div className="pad-cards">{Object.entries(pads).map(([id,pad])=><div key={id} className={mission.recommendation===id ? 'chosen-pad' : mission.tests.some(t => t.pad === id) ? 'failed-pad' : atPad===id ? 'active-pad' : ''}><strong>Pad {id}</strong><span>{pad.slope}° slope · measured</span><small>{coord(pad.lat, pad.lon)} · {pad.elevationM.toLocaleString()} m</small></div>)}</div>
+            <p className="muted">Slope limit ≤ {slopeLimit}° · slopes from the {shortName(site)} 500 m elevation grid</p>
+            {mission.done ? <Verdict mission={mission} pads={pads}/> : <p className="decision" role="status">{sampling ? `Sampling soil at Pad ${atPad}…` : mission.message}</p>}
+            <button className={`primary${sampling ? ' sampling' : ''}`} style={{'--sample-ms':`${SAMPLE_MS}ms`}} disabled={!atPad||mission.done||sampling} onClick={e=>{runTest();e.currentTarget.blur();}}>{sampling ? `Sampling Pad ${atPad} soil…` : atPad ? `Test Pad ${atPad} soil` : 'Test soil'}</button>
+            {!mission.done && <small className="muted">{sampling ? 'Sampling in progress. Rover holding position.' : atPad ? `Rover is in the Pad ${atPad} ring. Run the test.` : 'Drive into a pad ring you have not tested yet to enable the test.'}</small>}
+            {mission.done && <SaveMission key={`${site}-${run}`} siteId={site} targetId={targetId} order={mission.tests.map(t => t.pad)} padASoil={soilA} padBSoil={soilB} getTelemetry={() => telemetry.current}/>}
             <div className="scenario">
-              <label htmlFor="soil">Demo scenario · Pad A soil</label>
-              <select id="soil" value={outcome} onChange={e=>setOutcome(e.target.value)} disabled={mission.target!=='A'||!!mission.recommendation||sampling}>
-                <option value="pass">Pass</option><option value="fail">Fail</option>
-              </select>
-              <small className="muted">{mission.target==='B' ? 'Pad B simulates a passing soil sample.' : 'Reset to try the other outcome.'}</small>
+              <span className="scenario-title">Demo scenario · simulated soil results</span>
+              <div className="scenario-row">
+                <label htmlFor="soilA">Pad A soil</label>
+                <select id="soilA" value={soilA} onChange={e=>setSoilA(e.target.value)} disabled={mission.done||sampling||mission.tests.some(t => t.pad === 'A')}>
+                  <option value="pass">Pass</option><option value="fail">Fail</option>
+                </select>
+                <label htmlFor="soilB">Pad B soil</label>
+                <select id="soilB" value={soilB} onChange={e=>setSoilB(e.target.value)} disabled={mission.done||sampling||mission.tests.some(t => t.pad === 'B')}>
+                  <option value="pass">Pass</option><option value="fail">Fail</option>
+                </select>
+              </div>
+              <small className="muted">Reset to try another outcome. If both fail, neither pad qualifies.</small>
             </div>
           </section>
         </div>
         {tuning && <ModelTuner tune={tune} setTune={setTune} showBounds={showBounds} setShowBounds={setShowBounds}
           status={modelStatus} onFile={loadFile} onClose={()=>setTuning(false)}/>}
       </div>
-      {tab==='terrain' && <Terrain onContinue={goMission}/>}
-      <Telemetry joystick={joystick} onStatus={setPiStatus}/>
+      {tab==='terrain' && <Terrain onContinue={goMission} targetId={targetId} onTarget={setTargetId}/>}
+      <Telemetry joystick={joystick} onStatus={setPiStatus} onPacket={onPacket}/>
       <Credits/>
     </main>
   </>;

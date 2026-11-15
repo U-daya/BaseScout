@@ -65,9 +65,19 @@ function JoystickCheck({ packet, invert, setInvert, rate }) {
   </div>;
 }
 
-export default function Telemetry({ joystick, onStatus }) {
-  const [url,setUrl] = useState(import.meta.env.VITE_TELEMETRY_URL ?? '');
-  const [endpoint,setEndpoint] = useState(import.meta.env.VITE_TELEMETRY_URL ?? '');
+// On the public https site, connect to the cloud relay automatically (the Pi pushes to it).
+const RELAY_PATH = '/api/telemetry/live';
+function defaultEndpoint() {
+  if (import.meta.env.VITE_TELEMETRY_URL) return import.meta.env.VITE_TELEMETRY_URL;
+  const { protocol, host, hostname } = window.location;
+  const local = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.endsWith('.local');
+  return protocol === 'https:' && !local ? `wss://${host}${RELAY_PATH}` : '';
+}
+const viaRelay = endpoint => { try { return new URL(endpoint).pathname === RELAY_PATH; } catch { return false; } };
+
+export default function Telemetry({ joystick, onStatus, onPacket }) {
+  const [url,setUrl] = useState(defaultEndpoint);
+  const [endpoint,setEndpoint] = useState(defaultEndpoint);
   const [status,setStatus] = useState('Pi disconnected');
   const [packet,setPacket] = useState(null);
   const history = useRef({ at: 0, values: Object.fromEntries(sensors.map(([key]) => [key, []])) });
@@ -81,7 +91,7 @@ export default function Telemetry({ joystick, onStatus }) {
   useEffect(() => { onStatus?.(packet ? 'live' : status.startsWith('Connecting') ? 'connecting' : 'off'); }, [packet, status, onStatus]);
 
   useEffect(() => {
-    const clear = () => { joystick.current = { x:0,y:0,received:-Infinity }; };
+    const clear = () => { joystick.current = { x:0,y:0,received:-Infinity }; onPacket?.(null); };
     clear();
     setPacket(null);
     setRate(0);
@@ -104,15 +114,15 @@ export default function Telemetry({ joystick, onStatus }) {
     const expire = () => {
       clear();
       setPacket(null);
-      setStatus('Pi connected · no fresh readings');
+      setStatus(viaRelay(endpoint) ? 'Cloud relay connected · waiting for the Pi' : 'Pi connected · no fresh readings');
     };
     try {
       const address = new URL(endpoint);
-      if (!['ws:','wss:'].includes(address.protocol) || address.pathname !== '/telemetry') throw Error();
+      if (!['ws:','wss:'].includes(address.protocol) || !(address.pathname === '/telemetry' || address.pathname === RELAY_PATH)) throw Error();
       ws = new WebSocket(address);
     } catch {
       clearInterval(meter);
-      setStatus('Pi disconnected · enter a ws:// or wss:// URL ending in /telemetry');
+      setStatus('Pi disconnected · enter ws://<pi-ip>:8765/telemetry or the cloud relay URL');
       return;
     }
     setStatus('Connecting to Pi…');
@@ -145,7 +155,8 @@ export default function Telemetry({ joystick, onStatus }) {
         }
       }
       setPacket(normalized);
-      setStatus('Pi connected');
+      onPacket?.(normalized);
+      setStatus(viaRelay(endpoint) ? 'Pi connected · via cloud relay' : 'Pi connected');
       clearTimeout(timer);
       timer = setTimeout(expire,2000);
     };
@@ -156,7 +167,7 @@ export default function Telemetry({ joystick, onStatus }) {
       ws.onopen = ws.onclose = ws.onerror = ws.onmessage = null;
       ws.close();
     };
-  },[endpoint,attempt,joystick]);
+  },[endpoint,attempt,joystick,onPacket]);
 
   const blocked = mixedContentBlocked(url);
   return <section className="panel telemetry" id="telemetry">

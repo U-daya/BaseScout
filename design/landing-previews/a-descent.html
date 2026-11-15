@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BaseScout · Concept A · Descent</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0a0c;--ink:#efe8df;--muted:#9c938c;--accent:#ffb86b;--line:rgba(255,255,255,.12);--mono:'IBM Plex Mono',monospace}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif}
+canvas#gl{position:fixed;inset:0;width:100vw;height:100vh;display:block}
+.hud{position:fixed;z-index:3;font:500 11px/1.6 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink);pointer-events:none;white-space:pre}
+.hud.tl{top:22px;left:24px}.hud.tr{top:22px;right:24px;text-align:right}.hud.bl{bottom:22px;left:24px}.hud.br{bottom:22px;right:24px;text-align:right}
+.hud b{color:var(--accent);font-weight:500}
+.brand{display:flex;gap:10px;align-items:center;font:600 15px 'IBM Plex Sans';letter-spacing:0;text-transform:none}
+.brand svg{width:18px;height:18px;fill:none;stroke:var(--accent);stroke-width:1.4}
+.rail{position:fixed;right:24px;top:50%;transform:translateY(-50%);z-index:3;display:grid;gap:10px}
+.rail i{display:block;width:2px;height:34px;background:var(--line);position:relative;overflow:hidden}
+.rail i::after{content:'';position:absolute;inset:0;background:var(--accent);transform:scaleY(var(--p,0));transform-origin:top}
+main{position:relative;z-index:2}
+.stage:first-child{height:100vh}
+.stage{height:130vh;display:flex;align-items:center;padding:0 7vw}
+.stage .card{max-width:560px;opacity:0;transform:translateY(40px);transition:opacity .9s cubic-bezier(.2,.7,.2,1),transform .9s cubic-bezier(.2,.7,.2,1)}
+.stage.on .card{opacity:1;transform:none}
+.eyebrow{font:500 11px var(--mono);letter-spacing:.18em;color:var(--accent);text-transform:uppercase}
+h1{font-size:clamp(44px,7.4vw,112px);line-height:.92;letter-spacing:-.045em;font-weight:600;margin:18px 0}
+h2{font-size:clamp(30px,4.2vw,60px);line-height:1;letter-spacing:-.035em;font-weight:600;margin:14px 0}
+p{color:var(--muted);font-size:18px;line-height:1.6;margin:0}
+.big{font:500 clamp(70px,13vw,190px)/.9 var(--mono);letter-spacing:-.06em;color:var(--ink)}
+.right{justify-content:flex-end;text-align:right}.right .card{margin-left:auto}
+.cta{display:inline-flex;gap:12px;margin-top:28px}
+.cta a{font:500 14px 'IBM Plex Sans';color:#1b1410;background:var(--accent);padding:14px 22px;border-radius:3px;text-decoration:none}
+.cta a.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.scan{display:block;margin-top:22px;font:500 12px var(--mono);color:var(--ink);letter-spacing:.06em}
+.split{display:flex;gap:28px;margin-top:22px;font:500 12px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.split b{display:block;color:var(--ink);font-size:22px;letter-spacing:-.02em;margin-top:6px}
+.vignette{position:fixed;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse at center,transparent 45%,rgba(5,4,6,.7) 100%)}
+.grain{position:fixed;inset:-50%;z-index:1;pointer-events:none;opacity:.06;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");animation:grain 1.2s steps(6) infinite}
+@keyframes grain{0%{transform:translate(0,0)}20%{transform:translate(-6%,4%)}40%{transform:translate(5%,-3%)}60%{transform:translate(-3%,-6%)}80%{transform:translate(6%,5%)}100%{transform:translate(0,0)}}
+</style></head><body>
+<canvas id="gl"></canvas><div class="vignette"></div><div class="grain"></div>
+<div class="hud tl"><span class="brand"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5"/><circle cx="10" cy="10" r="2.2" style="fill:var(--accent);stroke:none"/><path d="M10 0v4M10 16v4M0 10h4M16 10h4"/></svg>BaseScout</span>
+NASA SPACE APPS · NYC 2026</div>
+<div class="hud tr" id="hudTR"></div>
+<div class="hud bl" id="hudBL"></div>
+<div class="hud br" id="hudBR"></div>
+<div class="rail"><i></i><i></i><i></i><i></i><i></i></div>
+<main>
+  <section class="stage"><div class="card">
+    <div class="eyebrow">Mission 01 · Crew base site selection</div>
+    <h1>Find Mars<br>on Earth.</h1>
+    <p>We compare real elevation data from Jezero Crater with two Earth deserts, pick the closest analog, then send a rover to choose where a crew base should go.</p>
+    <span class="scan">↓ Scroll to descend</span>
+  </div></section>
+  <section class="stage right"><div class="card">
+    <div class="eyebrow">Target · Mars</div>
+    <h2>Jezero Crater</h2>
+    <p>A 25 × 25 km window of NASA MOLA elevation data. 1,141 metres of relief, a median slope of 1.37°.</p>
+    <div class="split"><span>Relief<b>1,141 m</b></span><span>Median slope<b>1.37°</b></span><span>Steep slope<b>7.57°</b></span></div>
+  </div></section>
+  <section class="stage"><div class="card">
+    <div class="eyebrow">Analog search · Earth</div>
+    <h2>The ground is rewriting itself.</h2>
+    <p>Same window, same scale. The Martian surface morphs into Hanksville, Utah, the closest of our two candidates.</p>
+    <div class="big" id="score">0.00</div>
+    <p style="font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase">Terrain distance from Jezero · lower is closer</p>
+  </div></section>
+  <section class="stage right"><div class="card">
+    <div class="eyebrow">Rover mission · Hanksville</div>
+    <h2>Two pads. One base.</h2>
+    <p>The rover drives to Pad A, checks its slope, samples the soil. If Pad A fails, it reroutes to Pad B. Live sensors from a Raspberry Pi feed every reading.</p>
+  </div></section>
+  <section class="stage"><div class="card">
+    <div class="eyebrow">Ready</div>
+    <h1>Scout the<br>base.</h1>
+    <div class="cta"><a href="#">Launch mission</a><a class="ghost" href="#">Compare terrain</a></div>
+  </div></section>
+</main>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+const N = 220, W = 25;
+const rel = r => r <= 149 ? Math.max(0,(r-61)/88)*.5 : .5 + Math.min(1,(r-149)/94)*.5;
+function heights(src){return new Promise(res=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=c.height=N+1;const x=c.getContext('2d');x.drawImage(im,0,0,N+1,N+1);const d=x.getImageData(0,0,N+1,N+1).data;const h=new Float32Array((N+1)**2);for(let i=0;i<h.length;i++)h[i]=rel(d[i*4]);res(h)};im.src=src})}
+const [HJ, HU] = await Promise.all([heights('terrain/jezero.png'), heights('terrain/utah.png')]);
+const RJ = 1.1407, RU = .3376, EX = 3.2;
+
+const canvas = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+const scene = new THREE.Scene(); scene.fog = new THREE.FogExp2(0x0b0a0c, .0035);
+const camera = new THREE.PerspectiveCamera(38, 1, .1, 2000);
+scene.add(new THREE.HemisphereLight(0xfff1e2, 0x2a1a14, .55));
+const sun = new THREE.DirectionalLight(0xffe0bd, 4); sun.position.set(-30,22,-12); scene.add(sun);
+
+// Stars
+const sg = new THREE.BufferGeometry(); const sp = new Float32Array(6000*3);
+for(let i=0;i<6000;i++){const u=Math.random()*2-1,a=Math.random()*Math.PI*2,r=500+Math.random()*400,s=Math.sqrt(1-u*u);sp.set([Math.cos(a)*s*r,Math.abs(u)*r*.9+20,Math.sin(a)*s*r],i*3)}
+sg.setAttribute('position',new THREE.BufferAttribute(sp,3));
+const stars = new THREE.Points(sg,new THREE.PointsMaterial({color:0xffffff,size:1.4,sizeAttenuation:false,transparent:true,opacity:.85,fog:false})); scene.add(stars);
+
+// Terrain
+const geo = new THREE.PlaneGeometry(W,W,N,N); geo.rotateX(-Math.PI/2);
+const pos = geo.attributes.position; const col = new Float32Array(pos.count*3); geo.setAttribute('color',new THREE.BufferAttribute(col,3));
+const terrain = new THREE.Mesh(geo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:.96,flatShading:false})); scene.add(terrain);
+const mars=[[.20,.09,.07],[.56,.25,.15],[.86,.55,.36]], earth=[[.33,.22,.17],[.71,.5,.34],[.93,.82,.66]];
+const ramp=(r,t)=>{const k=t<.5?0:1,f=t<.5?t*2:(t-.5)*2;return r[k].map((v,i)=>v+(r[k+1][i]-v)*f)};
+let lastMorph=-1;
+function morph(m){ if(Math.abs(m-lastMorph)<.0005) return; lastMorph=m;
+  for(let i=0;i<pos.count;i++){const hj=HJ[i]*RJ, hu=HU[i]*RU; pos.setY(i,(hj+(hu-hj)*m)*EX);
+    const a=ramp(mars,HJ[i]), b=ramp(earth,HU[i]); col[i*3]=a[0]+(b[0]-a[0])*m; col[i*3+1]=a[1]+(b[1]-a[1])*m; col[i*3+2]=a[2]+(b[2]-a[2])*m;}
+  pos.needsUpdate=true; geo.attributes.color.needsUpdate=true; geo.computeVertexNormals(); }
+morph(0);
+
+// Scanner plane sweeping during the morph
+const scan = new THREE.Mesh(new THREE.PlaneGeometry(W*1.02,6),new THREE.MeshBasicMaterial({color:0xffb86b,transparent:true,opacity:.0,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending}));
+scan.rotation.y = 0; scene.add(scan);
+const scanLine = new THREE.Mesh(new THREE.BoxGeometry(W*1.02,.04,.04),new THREE.MeshBasicMaterial({color:0xffd3a0,transparent:true,opacity:0})); scene.add(scanLine);
+
+// Pads and rover path for the final stage
+const pads = new THREE.Group(); scene.add(pads);
+const padMat = new THREE.MeshBasicMaterial({color:0xffb86b,transparent:true,opacity:0});
+const padB = new THREE.MeshBasicMaterial({color:0xc9d3dc,transparent:true,opacity:0});
+const ringA = new THREE.Mesh(new THREE.RingGeometry(.9,1.0,64),padMat), ringB = new THREE.Mesh(new THREE.RingGeometry(.9,1.0,64),padB);
+ringA.rotation.x = ringB.rotation.x = -Math.PI/2; pads.add(ringA, ringB);
+const pathPts = []; const pathGeo = new THREE.BufferGeometry(); const pathLine = new THREE.Line(pathGeo,new THREE.LineBasicMaterial({color:0xffb86b,transparent:true,opacity:0})); scene.add(pathLine);
+const heightAt=(x,z)=>{const gx=Math.round((x/W+.5)*N), gz=Math.round((z/W+.5)*N); const i=Math.max(0,Math.min(N,gz))*(N+1)+Math.max(0,Math.min(N,gx)); return pos.getY(i)};
+const rover = new THREE.Mesh(new THREE.BoxGeometry(.5,.25,.7),new THREE.MeshStandardMaterial({color:0xe8e4dc,roughness:.4,metalness:.3,transparent:true,opacity:0})); scene.add(rover);
+
+function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
+addEventListener('resize',resize); resize();
+
+const stages=[...document.querySelectorAll('.stage')], rails=[...document.querySelectorAll('.rail i')];
+const io=new IntersectionObserver(es=>es.forEach(e=>e.target.classList.toggle('on',e.isIntersecting)),{threshold:.35}); stages.forEach(s=>io.observe(s));
+let target=0, t=0; const sc=()=>{const max=document.documentElement.scrollHeight-innerHeight; target=max>0?scrollY/max:0}; addEventListener('scroll',sc,{passive:true}); sc();
+let mx=0,my=0; addEventListener('pointermove',e=>{mx=e.clientX/innerWidth-.5;my=e.clientY/innerHeight-.5});
+const smooth=(a,b,v)=>{const x=Math.min(1,Math.max(0,(v-a)/(b-a)));return x*x*(3-2*x)};
+const lerp=(a,b,f)=>a+(b-a)*f;
+const hudTR=document.getElementById('hudTR'),hudBL=document.getElementById('hudBL'),hudBR=document.getElementById('hudBR'),score=document.getElementById('score');
+const clock=new THREE.Clock(); let hudAt=0;
+renderer.setAnimationLoop(()=>{
+  const dt=Math.min(clock.getDelta(),.05), time=clock.elapsedTime;
+  t += (target-t)*(1-Math.exp(-dt*3.2));
+  rails.forEach((r,i)=>r.style.setProperty('--p',Math.min(1,Math.max(0,t*5-i))));
+  // camera path: orbit -> descent -> low oblique -> sweep
+  const d = smooth(0,.32,t), s2 = smooth(.72,1,t);
+  const orbit = time*.035 + t*1.6;
+  const radius = lerp(46, 21, d) + lerp(0,-4,s2);
+  const height = lerp(34, 7.5, d) + lerp(0,2.5,s2);
+  camera.position.set(Math.cos(orbit)*radius + mx*3, height - my*2, Math.sin(orbit)*radius);
+  camera.lookAt(0, lerp(0,1.2,d), 0);
+  stars.material.opacity = lerp(.9,.25,d);
+  const m = smooth(.42,.68,t); morph(m);
+  const sweep = smooth(.40,.70,t); const sOn = sweep>0 && sweep<1 ? 1 : 0;
+  scan.position.set(0, 2, lerp(-W/2,W/2,sweep)); scan.material.opacity = sOn*.08; scanLine.position.set(0, 4.2, scan.position.z); scanLine.material.opacity = sOn*.9;
+  score.textContent = (lerp(0,.47,smooth(.45,.66,t))).toFixed(2);
+  const f = smooth(.76,.88,t);
+  const A=[-5.5,-3.5], B=[5,-4]; ringA.position.set(A[0],heightAt(...A)+.08,A[1]); ringB.position.set(B[0],heightAt(...B)+.08,B[1]);
+  padMat.opacity = f*.95; padB.opacity = f*.7;
+  const drive = smooth(.84,.98,t); const S=[0,5]; const rx=lerp(S[0],A[0],drive), rz=lerp(S[1],A[1],drive);
+  rover.position.set(rx, heightAt(rx,rz)+.2, rz); rover.lookAt(A[0],rover.position.y,A[1]); rover.material.opacity=f;
+  if(drive>0){pathPts.length=0;for(let k=0;k<=40;k++){const q=k/40*drive;const x=lerp(S[0],A[0],q),z=lerp(S[1],A[1],q);pathPts.push(new THREE.Vector3(x,heightAt(x,z)+.06,z))} pathGeo.setFromPoints(pathPts)}
+  pathLine.material.opacity = f*.9;
+  if(time-hudAt>.08){hudAt=time;
+    const alt=(camera.position.y*1.0).toFixed(1), lat=lerp(18.45,38.40,m), lon=lerp(77.45,-110.70,m);
+    hudTR.innerHTML=`ALT <b>${alt} KM</b>\nRANGE ${radius.toFixed(1)} KM\nT+ ${time.toFixed(1)} S`;
+    hudBL.innerHTML=`${m<.5?'MARS · JEZERO CRATER':'EARTH · HANKSVILLE, UT'}\n${Math.abs(lat).toFixed(2)}°${lat>=0?'N':'S'}  ${Math.abs(lon).toFixed(2)}°${lon>=0?'E':'W'}`;
+    hudBR.innerHTML=`SURFACE BLEND <b>${Math.round(m*100)}%</b>\nVERTICAL ×${EX}`;}
+  renderer.render(scene,camera);
+});
+</script></body></html>

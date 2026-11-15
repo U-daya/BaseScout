@@ -1,7 +1,68 @@
+import { DurableObject } from 'cloudflare:workers';
+
+// Live Earth demo telemetry relay.
+// The Raspberry Pi connects to /api/telemetry/push with the TELEMETRY_TOKEN secret and sends
+// one JSON sample per message. Every browser connected to /api/telemetry/live receives each
+// sample. One Durable Object instance holds all sockets, so the Pi and viewers meet in one place.
+const MAX_MESSAGE = 2048;
+const FRESH_MS = 2000;
+
+export class TelemetryRelay extends DurableObject {
+  constructor(ctx, env) {
+    super(ctx, env);
+    this.last = null;
+    this.lastAt = 0;
+  }
+
+  async fetch(request) {
+    const role = new URL(request.url).searchParams.get('role') === 'pi' ? 'pi' : 'viewer';
+    const pair = new WebSocketPair();
+    const [client, server] = Object.values(pair);
+    if (role === 'pi') for (const old of this.ctx.getWebSockets('pi')) old.close(4000, 'replaced by a newer Pi connection');
+    this.ctx.acceptWebSocket(server, [role]);
+    if (role === 'viewer' && this.last && Date.now() - this.lastAt < FRESH_MS) server.send(this.last);
+    return new Response(null, { status: 101, webSocket: client });
+  }
+
+  webSocketMessage(ws, message) {
+    if (!this.ctx.getTags(ws).includes('pi')) return; // viewers are read-only
+    if (typeof message !== 'string' || message.length > MAX_MESSAGE) return;
+    try { if (typeof JSON.parse(message) !== 'object') return; } catch { return; }
+    this.last = message;
+    this.lastAt = Date.now();
+    for (const viewer of this.ctx.getWebSockets('viewer')) {
+      try { viewer.send(message); } catch { /* viewer went away */ }
+    }
+  }
+
+  webSocketClose(ws, code) {
+    try { ws.close(code === 1005 ? 1000 : code, 'closed'); } catch { /* already closed */ }
+  }
+}
+
+async function tokenMatches(given, expected) {
+  if (!given || !expected) return false;
+  const a = new TextEncoder().encode(given), b = new TextEncoder().encode(expected);
+  if (a.byteLength !== b.byteLength) return false;
+  return crypto.subtle.timingSafeEqual(a, b);
+}
+
+async function telemetry(request, env, pathname) {
+  if (request.headers.get('Upgrade') !== 'websocket') return new Response('Expected a WebSocket upgrade.', { status: 426 });
+  const relay = env.TELEMETRY.get(env.TELEMETRY.idFromName('live-earth-demo'));
+  if (pathname === '/api/telemetry/live') return relay.fetch(new Request('https://relay/?role=viewer', request));
+  // Push: token in the Authorization header (preferred) or ?token= for clients that cannot set headers.
+  const header = request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '');
+  const token = header || new URL(request.url).searchParams.get('token');
+  if (!(await tokenMatches(token, env.TELEMETRY_TOKEN))) return new Response('Unauthorized.', { status: 401 });
+  return relay.fetch(new Request('https://relay/?role=pi', request));
+}
+
 export default {
   async fetch(request, env) {
     const { pathname } = new URL(request.url);
     if (!pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
+    if (pathname === '/api/telemetry/live' || pathname === '/api/telemetry/push') return telemetry(request, env, pathname);
     try {
       const url = new URL(env.VULTR_ORIGIN);
       if (url.protocol !== 'https:' || !env.ORIGIN_TOKEN) throw Error();

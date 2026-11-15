@@ -17,6 +17,8 @@ Missing or failing sensors are sent as null. Leave the joystick untouched for th
 first second after starting so its centre can be calibrated.
 
 Run:   python3 pi/telemetry.py
+Cloud: set RELAY_URL (wss://<site>/api/telemetry/push) and RELAY_TOKEN to also push
+       every sample to the public site, so it works from any network.
 Needs: sudo apt install -y python3-smbus2 python3-websockets   (I2C enabled)
 """
 import asyncio
@@ -26,6 +28,7 @@ import time
 from datetime import datetime, timezone
 
 from smbus2 import SMBus
+from websockets.asyncio.client import connect
 from websockets.asyncio.server import serve
 
 HAT_ADDR = int(os.environ.get("HAT_ADDR", "0x04"), 16)
@@ -161,24 +164,59 @@ def read_sample():
     }
 
 
+# One sampler reads the sensors; local viewers and the cloud relay share its latest sample,
+# so the I2C bus is never read by two clients at once.
+latest = {"json": None}
+
+
+async def sampler():
+    while True:
+        latest["json"] = json.dumps(read_sample())
+        await asyncio.sleep(1 / RATE_HZ)
+
+
 async def handler(ws):
     if ws.request.path != "/telemetry":
         await ws.close(code=1008, reason="use /telemetry")
         return
-    print("BaseScout connected")
+    print("Local viewer connected")
     try:
         while True:
-            await ws.send(json.dumps(read_sample()))
+            if latest["json"]:
+                await ws.send(latest["json"])
             await asyncio.sleep(1 / RATE_HZ)
     except Exception:
-        print("BaseScout disconnected")
+        print("Local viewer disconnected")
+
+
+async def relay():
+    """Push every sample to the cloud relay so the public site shows live data from anywhere."""
+    url, token = os.environ.get("RELAY_URL"), os.environ.get("RELAY_TOKEN")
+    if not url or not token:
+        print("Cloud relay off (set RELAY_URL and RELAY_TOKEN to enable)")
+        return
+    delay = 1
+    while True:
+        try:
+            async with connect(url, additional_headers={"Authorization": f"Bearer {token}"},
+                               open_timeout=10, ping_interval=20) as ws:
+                print(f"Cloud relay connected: {url}")
+                delay = 1
+                while True:
+                    if latest["json"]:
+                        await ws.send(latest["json"])
+                    await asyncio.sleep(1 / RATE_HZ)
+        except Exception as error:
+            print(f"Cloud relay disconnected ({type(error).__name__}); retrying in {delay}s")
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, 30)
 
 
 async def main():
     print("Sample:", read_sample())
     async with serve(handler, "0.0.0.0", PORT):
         print(f"Telemetry on ws://<this-pi-ip>:{PORT}/telemetry")
-        await asyncio.Future()
+        await asyncio.gather(sampler(), relay())
 
 
 if __name__ == "__main__":
