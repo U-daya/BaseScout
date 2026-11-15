@@ -11,9 +11,9 @@ NASA Space Apps prototype. Compare real Earth and Mars elevation windows, then d
 - Leave the Vultr instance running for the demo. The Quick Tunnel survives SSH logout. If it stops or the VM reboots, start a new tunnel and update the Worker’s `VULTR_ORIGIN` secret. The browser still uses the same public BaseScout URL.
 - Pending work: Gemini mission debrief, physical Pi and joystick validation, SolidWorks GLB export and integration, and clarification of the SpaceX ST item.
 
-### Share on GitHub
+### Repository
 
-Create a private repo named `BaseScout`, upload the contents of this folder, and invite your teammate in the repo settings. Keep the directory structure, including the `public/terrain` assets, `.gitignore`, and the example env files. Use the example files to configure your own local settings. Credentials, deployment secrets, and temporary tunnel URLs belong outside the repository.
+Public repo: <https://github.com/U-daya/BaseScout>. Clone it with `git clone https://github.com/U-daya/BaseScout.git`. Collaborators are added in the repo settings. Use the example env files to configure your own local settings. Because the repo is public, credentials, deployment secrets, and temporary tunnel URLs must never be committed. Keep them in `.env`, `.dev.vars`, or Wrangler secrets.
 
 ## Build order
 
