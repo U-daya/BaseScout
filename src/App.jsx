@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import Scene, { parseTune } from './Scene';
 import ModelTuner, { ModelStatus } from './ModelTuner';
-import Terrain from './Terrain';
+import Terrain, { rankSites } from './Terrain';
 import Telemetry from './Telemetry';
 import { SaveMission, MissionReport } from './Reports';
 import { padsFor, slopeLimit, testPad, newMission, padIds, defaultSite, siteIds, siteName, baseTargets, defaultTarget } from './mission';
@@ -27,13 +27,13 @@ function missionSteps(mission, atPad) {
   const other = first ? padIds.find(id => id !== first.pad) : null;
   const needSecond = first && !mission.recommendation;
   const steps = [
-    { n:1, label: first ? `Drive to Pad ${first.pad}` : 'Drive to a pad', state: first || atPad ? 'done' : 'current' },
-    { n:2, label: first ? `Test Pad ${first.pad} soil` : 'Test its soil', state: first ? 'done' : atPad ? 'current' : 'todo' },
-    { n:3, label: other ? `Drive to Pad ${other}` : 'Drive to the other pad', branch: true,
+    { n:1, label: first ? `Reach Pad ${first.pad}` : 'Reach a pad', state: first || atPad ? 'done' : 'current' },
+    { n:2, label: first ? `Sample Pad ${first.pad} soil` : 'Sample its soil', state: first ? 'done' : atPad ? 'current' : 'todo' },
+    { n:3, label: other ? `Reach Pad ${other}` : 'Reach the other pad', branch: true,
       state: !first ? 'branch' : !needSecond ? 'skipped' : second || atPad ? 'done' : 'current' },
-    { n:4, label: other ? `Test Pad ${other} soil` : 'Test its soil', branch: true,
+    { n:4, label: other ? `Sample Pad ${other} soil` : 'Sample its soil', branch: true,
       state: !first ? 'branch' : !needSecond ? 'skipped' : second ? 'done' : atPad ? 'current' : 'todo' },
-    { n:5, label: mission.done ? (mission.recommendation ? `Recommend Pad ${mission.recommendation}` : 'No pad qualifies') : 'Recommendation',
+    { n:5, label: mission.done ? (mission.recommendation ? `Build at Pad ${mission.recommendation}` : 'No pad qualifies') : 'Choose the site',
       state: mission.done ? 'done' : 'todo' },
   ];
   return steps;
@@ -50,8 +50,8 @@ function StepTracker({ mission, atPad }) {
 
 function Verdict({ mission, pads }) {
   return <div className={`verdict${mission.recommendation ? '' : ' none'}`} role="status">
-    <span className="eyebrow">MISSION RESULT</span>
-    <strong>{mission.recommendation ? `Recommend Pad ${mission.recommendation}` : 'Neither pad qualifies'}</strong>
+    <span className="eyebrow">BASE SITE DECISION</span>
+    <strong>{mission.recommendation ? `Build at Pad ${mission.recommendation}` : 'Neither pad qualifies'}</strong>
     <ul>{mission.tests.map(t => {
       const slopeOk = pads[t.pad].slope <= slopeLimit;
       return <li key={t.pad}><b>Pad {t.pad}</b>
@@ -86,6 +86,10 @@ function App() {
   const pads = padsFor(site);
   const [soilA,setSoilA] = useState('pass');
   const [soilB,setSoilB] = useState('pass');
+  const [sites,setSites] = useState([]);
+  useEffect(() => { fetch('/terrain/sites.json').then(r => r.ok ? r.json() : []).then(setSites).catch(() => {}); }, []);
+  const ranked = rankSites(sites, targetId).filter(s => siteIds.includes(s.id));
+  const siteOptions = ranked.length === siteIds.length ? ranked : siteIds.map(id => ({ id }));
   const telemetry = useRef(null);
   const onPacket = useCallback(p => { telemetry.current = p; }, []);
   const [atPad,setAtPad] = useState(null);
@@ -117,23 +121,27 @@ function App() {
   }
   useEffect(() => () => { if (objectUrl.current) URL.revokeObjectURL(objectUrl.current); }, []);
 
-  const chip = { live:'Pi connected', connecting:'Pi connecting…', off:'Pi disconnected' }[piStatus];
+  const chip = { live:'Pi connected', connecting:'Pi connecting…', off:'Keyboard control · Pi offline' }[piStatus];
   return <>
     <header className="top"><a className="brand" href="/" title="Back to the BaseScout home page"><svg className="brand-icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><circle cx="10" cy="10" r="2.2" className="core"/><path d="M10 0v4M10 16v4M0 10h4M16 10h4"/></svg>BaseScout<span className="brand-tag">Space Apps NYC 2026</span></a>
     <nav aria-label="Main views">
-      <button type="button" aria-pressed={tab==='terrain'} onClick={()=>setTab('terrain')}><span className="step-num">1</span> Find an analog</button>
-      <button type="button" aria-pressed={tab==='mission'} onClick={()=>setTab('mission')}><span className="step-num">2</span> Scout a base</button>
+      <button type="button" aria-pressed={tab==='terrain'} onClick={()=>setTab('terrain')}><span className="step-num">1</span> Find the Earth twin</button>
+      <button type="button" aria-pressed={tab==='mission'} onClick={()=>setTab('mission')}><span className="step-num">2</span> Rehearse the landing</button>
     </nav>
     <button type="button" className={`pi-chip ${piStatus}`} onClick={()=>document.getElementById('telemetry')?.scrollIntoView({behavior:'smooth'})}>
       <span className="pi-dot" aria-hidden="true"/>{chip}
     </button></header>
     <main>
       <div hidden={tab!=='mission'}>
-        <div className="intro"><p className="eyebrow">STEP 2 · ROVER MISSION</p><h1>Scout a crew base</h1>
-          <p>The rover rehearses a permanent-base survey for <b>{target.name}</b> ({target.planet}) at <b>{siteName(site)}</b>, a real analog site on Earth. Drive to the active pad, check its slope, and test the soil. Pad slopes are measured from this site's real elevation data; the 3D field and soil results are simulated.</p></div>
-        <div className="site-picker" role="tablist" aria-label="Test site">
-          <span>Test site</span>
-          {siteIds.map(id => <button key={id} type="button" role="tab" aria-selected={id === site} disabled={sampling} onClick={() => changeSite(id)}>{shortName(id)}</button>)}
+        <div className="mission-head">
+          <div className="intro"><p className="eyebrow">STEP 2 · LANDING REHEARSAL</p><h1>Pick the landing pad</h1>
+            <p>Rehearsing <b>{target.name}</b> ({target.planet}) at <b>{siteName(site)}</b>. Drive to a pad, sample its soil, choose the base site.</p></div>
+          <label className="site-select"><span>Earth test site</span>
+            <select value={site} disabled={sampling} onChange={e => changeSite(e.target.value)}>
+              {siteOptions.map((s, i) => <option key={s.id} value={s.id}>{shortName(s.id)}{s.score != null ? ` · ${s.score.toFixed(2)}${i === 0 ? ' · best twin' : ''}` : ''}</option>)}
+            </select>
+            <small>{ranked.length ? `Sorted by terrain match to ${target.name}` : 'Real analog sites on Earth'}</small>
+          </label>
         </div>
         <StepTracker mission={mission} atPad={atPad}/>
         <div className="mission-grid">
@@ -147,7 +155,7 @@ function App() {
           <section className="panel plan">
             <div className="panel-head"><h2>Site decision</h2><button onClick={e=>{reset();e.currentTarget.blur();}}>Reset</button></div>
             <div className="pad-cards">{Object.entries(pads).map(([id,pad])=><div key={id} className={mission.recommendation===id ? 'chosen-pad' : mission.tests.some(t => t.pad === id) ? 'failed-pad' : atPad===id ? 'active-pad' : ''}><strong>Pad {id}</strong><span>{pad.slope}° slope · measured</span><small>{coord(pad.lat, pad.lon)} · {pad.elevationM.toLocaleString()} m</small></div>)}</div>
-            <p className="muted">Slope limit ≤ {slopeLimit}° · slopes from the {shortName(site)} 500 m elevation grid</p>
+            <p className="muted fine">Slope limit ≤ {slopeLimit}° · measured from the {shortName(site)} 500 m elevation grid. <span title="Landers and base modules need near-level ground; 8° is a common planning limit for landing and habitat sites.">Why {slopeLimit}°?</span> The 3D field and soil results are simulated.</p>
             {mission.done ? <Verdict mission={mission} pads={pads}/> : <p className="decision" role="status">{sampling ? `Sampling soil at Pad ${atPad}…` : mission.message}</p>}
             <button className={`primary${sampling ? ' sampling' : ''}`} style={{'--sample-ms':`${SAMPLE_MS}ms`}} disabled={!atPad||mission.done||sampling} onClick={e=>{runTest();e.currentTarget.blur();}}>{sampling ? `Sampling Pad ${atPad} soil…` : atPad ? `Test Pad ${atPad} soil` : 'Test soil'}</button>
             {!mission.done && <small className="muted">{sampling ? 'Sampling in progress. Rover holding position.' : atPad ? `Rover is in the Pad ${atPad} ring. Run the test.` : 'Drive into a pad ring you have not tested yet to enable the test.'}</small>}

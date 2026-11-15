@@ -7,6 +7,11 @@ const gap = (site, target, key) => Math.abs(site[key]-target[key])/target[key];
 const distance = (site, target) => metrics.reduce((sum,[key]) => sum + gap(site,target,key),0)/metrics.length;
 const format = (value, unit) => unit === 'm' ? `${Math.round(value).toLocaleString()} m` : `${value.toFixed(2)}°`;
 const short = name => name.split(',')[0];
+// Earth sites ranked by terrain distance to a Moon or Mars target (lower is closer).
+export const rankSites = (sites, targetId) => {
+  const target = sites.find(s => s.id === targetId);
+  return target ? sites.filter(s => s.planet === 'Earth').map(s => ({ ...s, score: distance(s, target) })).sort((a, b) => a.score - b.score) : [];
+};
 
 function ScoreBreakdown({ ranked, target }) {
   const max = Math.max(1, ...ranked.flatMap(site => metrics.map(([key]) => gap(site,target,key))));

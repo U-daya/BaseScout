@@ -327,3 +327,15 @@ a.brand { color: inherit; text-decoration: none; }
 .target-picker button[aria-selected=true] { border-color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
 .target-note { color: var(--muted); font-size: .86rem; margin: 0 0 1rem; max-width: 70ch; }
 .terrain-card.target { border-color: #6f7fa3; }
+
+/* Mission header: intro + one-row site selector */
+.mission-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; padding: 1.2rem 0 1rem; }
+.mission-head .intro { padding: 0; }
+.mission-head .intro h1 { margin: .15rem 0 .25rem; }
+.site-select { display: grid; gap: .3rem; min-width: 250px; }
+.site-select > span { font: 500 .64rem var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.site-select select { font: inherit; font-size: .95rem; color: #ece6df; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: .55rem .7rem; cursor: pointer; }
+.site-select select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.site-select small { color: var(--muted); font-size: .74rem; }
+.muted.fine { font-size: .78rem; line-height: 1.45; }
+.muted.fine span[title] { text-decoration: underline dotted; cursor: help; }
