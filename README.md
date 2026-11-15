@@ -47,6 +47,38 @@ The public site is served over `https://`. Browsers block a page like that from 
 
 **Joystick check:** after connecting, the **Joystick check** box in the telemetry panel shows a live dot. Push the stick forward and the dot should move up. Push it right and the dot should move right. If either is backwards, tick **Invert X** or **Invert Y**. The setting is saved in that browser. The box also shows the packet rate in Hz (target 10–20 Hz). The header chip shows the Pi status from any screen. Click it to jump to the panel.
 
+## Pi hardware and telemetry server
+
+The Pi 5 runs [`pi/telemetry.py`](pi/telemetry.py), a WebSocket server on port 8765 that streams the `/telemetry` contract at about 15 Hz.
+
+| Grove module | Connection | Field |
+|---|---|---|
+| Grove Base Hat for Raspberry Pi (ADC) | I²C `0x04` | — |
+| Thumb Joystick | Hat port **A0** (channel 0 = X, 1 = Y) | `joystick_x`, `joystick_y` (−1…+1, centre calibrated at startup) |
+| Light Sensor | Hat port **A2** | `light` (raw 12-bit ADC, 0–4095) |
+| Air Quality Sensor | Hat port **A4** | `air_quality` (raw 12-bit ADC, 0–4095) |
+| High Precision Barometer (DPS310) | I²C `0x77` | `temp_c` (°C), `pressure_hpa` (hPa) |
+| LCD RGB Backlight | I²C `0x3e` / `0x62` | not used yet |
+
+There is no UV sensor, so `uv` is always `null`. `i2cdetect -y -a 1` should list `04` and `77`. Plain `i2cdetect -y 1` skips addresses below `08`, which hides the Hat.
+
+**Run it on the Pi:**
+
+```bash
+sudo raspi-config nonint do_i2c 0
+sudo apt install -y git i2c-tools python3-smbus2 python3-websockets
+git clone https://github.com/U-daya/BaseScout.git ~/BaseScout
+python3 ~/BaseScout/pi/telemetry.py
+```
+
+Leave the joystick untouched for the first second so its centre can be calibrated. To start it automatically at boot, install [`pi/basescout-telemetry.service`](pi/basescout-telemetry.service) (the steps are in the file). Edit `User` and the paths if your Pi username isn't `udaya`.
+
+**Networking notes from setup:**
+- The laptop and the Pi must be on the same network. Check with `ipconfig` on the laptop and `hostname -I` on the Pi.
+- A WPA3-only phone hotspot may refuse the Wi-Fi settings from Raspberry Pi Imager. Joining from the Pi desktop's network menu worked.
+- At a hackathon, avoid `raspberrypi.local` because other teams' Pis use the same name. Use the IP address or a unique hostname.
+- Connect from the local app (`npm run dev`, then `http://127.0.0.1:5173`) with `ws://<pi-ip>:8765/telemetry`. The public `https` site cannot open `ws://`.
+
 ## Sponsor integrations
 
 | Service | Role | Config |

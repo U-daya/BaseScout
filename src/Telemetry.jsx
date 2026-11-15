@@ -2,7 +2,7 @@ import React from 'react';
 import { useEffect, useRef, useState } from 'react';
 
 const sensors = [
-  ['uv','UV',''], ['light','Light',''], ['air_quality','Air quality',''],
+  ['uv','UV',''], ['light','Light (raw)',''], ['air_quality','Air quality (raw)',''],
   ['temp_c','Temperature',' °C'], ['pressure_hpa','Pressure',' hPa'],
   ['joystick_x','Joystick X',''], ['joystick_y','Joystick Y',''],
 ];
@@ -145,6 +145,6 @@ export default function Telemetry({ joystick, onStatus }) {
       <dl className="readings">{sensors.map(([key,label,unit]) => <div key={key}><dt>{label}</dt><dd>{packet?.[key] == null ? '—' : `${packet[key]}${unit}`}</dd></div>)}</dl>
       <JoystickCheck packet={packet} invert={invert} setInvert={setInvert} rate={rate}/>
     </div>
-    <p className="muted">Sample time {packet?.timestamp ?? '—'}. UV, light, and air quality use raw values pending unit confirmation. Keyboard always overrides the joystick.</p>
+    <p className="muted">Sample time {packet?.timestamp ?? '—'}. Light and air quality are raw 12-bit ADC readings (0–4095). Temperature and pressure come from a DPS310 barometer. No UV sensor is connected. Keyboard always overrides the joystick.</p>
   </section>;
 }

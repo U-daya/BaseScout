@@ -1,0 +1,20 @@
+# Starts the BaseScout telemetry server at boot.
+# Install (adjust User and the path if your Pi username or clone location differ):
+#   sudo cp pi/basescout-telemetry.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now basescout-telemetry
+# Logs: journalctl -u basescout-telemetry -f
+[Unit]
+Description=BaseScout Live Earth demo telemetry
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=udaya
+WorkingDirectory=/home/udaya/BaseScout
+ExecStart=/usr/bin/python3 /home/udaya/BaseScout/pi/telemetry.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
