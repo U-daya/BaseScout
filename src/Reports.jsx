@@ -3,24 +3,33 @@ import React, { useEffect, useState } from 'react';
 async function requestReport(path, options) {
   const response = await fetch(path, options);
   const body = await response.json().catch(() => null);
-  if (!response.ok || !body?.report) throw Error(body?.error ?? 'Mission API unavailable. Retry shortly.');
+  if (!response.ok || !body?.report) throw Object.assign(Error(body?.error ?? 'Mission API unavailable. Retry shortly.'), { status: response.status });
   return body;
 }
 
 export function SaveMission({ siteId, targetId, order, padASoil, padBSoil, getTelemetry }) {
-  const [id] = useState(() => crypto.randomUUID());
+  const [id, setId] = useState(() => crypto.randomUUID());
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
   async function save() {
     setSaving(true);
     setError('');
+    const post = missionId => requestReport('/api/missions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: missionId, siteId, targetId, order, padASoil, padBSoil, telemetry: getTelemetry?.() ?? undefined }),
+    });
     try {
-      await requestReport('/api/missions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, siteId, targetId, order, padASoil, padBSoil, telemetry: getTelemetry?.() ?? undefined }),
-      });
+      try {
+        await post(id);
+      } catch (failure) {
+        // An earlier attempt with this ID was stored with other results: save under a fresh ID instead.
+        if (failure.status !== 409) throw failure;
+        const fresh = crypto.randomUUID();
+        await post(fresh);
+        setId(fresh);
+      }
       setSaved(true);
     } catch (failure) {
       setError(failure.message);

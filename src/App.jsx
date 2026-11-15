@@ -151,7 +151,7 @@ function App() {
             {mission.done ? <Verdict mission={mission} pads={pads}/> : <p className="decision" role="status">{sampling ? `Sampling soil at Pad ${atPad}…` : mission.message}</p>}
             <button className={`primary${sampling ? ' sampling' : ''}`} style={{'--sample-ms':`${SAMPLE_MS}ms`}} disabled={!atPad||mission.done||sampling} onClick={e=>{runTest();e.currentTarget.blur();}}>{sampling ? `Sampling Pad ${atPad} soil…` : atPad ? `Test Pad ${atPad} soil` : 'Test soil'}</button>
             {!mission.done && <small className="muted">{sampling ? 'Sampling in progress. Rover holding position.' : atPad ? `Rover is in the Pad ${atPad} ring. Run the test.` : 'Drive into a pad ring you have not tested yet to enable the test.'}</small>}
-            {mission.done && <SaveMission key={`${site}-${run}`} siteId={site} targetId={targetId} order={mission.tests.map(t => t.pad)} padASoil={soilA} padBSoil={soilB} getTelemetry={() => telemetry.current}/>}
+            {mission.done && <SaveMission key={`${site}-${run}`} siteId={site} targetId={targetId} order={mission.tests.map(t => t.pad)} padASoil={mission.tests.find(t => t.pad === 'A')?.soil ?? soilA} padBSoil={mission.tests.find(t => t.pad === 'B')?.soil ?? soilB} getTelemetry={() => telemetry.current}/>}
             <div className="scenario">
               <span className="scenario-title">Demo scenario · simulated soil results</span>
               <div className="scenario-row">
