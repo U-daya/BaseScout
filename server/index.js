@@ -4,17 +4,16 @@ import pg from 'pg';
 import { missionApi } from './api.js';
 import { twilioConfig } from './notify.js';
 
-const { DATABASE_URL, ORIGIN_TOKEN, GEMINI_API_KEY, GEMINI_MODEL = 'gemini-3.6-flash', XAI_API_KEY, XAI_MODEL = 'grok-4', HOST = '127.0.0.1', PORT = '8788' } = process.env;
+const { DATABASE_URL, ORIGIN_TOKEN, GEMINI_API_KEY, GEMINI_MODEL = 'gemini-3.6-flash', HOST = '127.0.0.1', PORT = '8788' } = process.env;
 if (!DATABASE_URL) throw Error('Set DATABASE_URL in server/.env.');
 if (HOST !== '127.0.0.1' && !ORIGIN_TOKEN) throw Error('Set ORIGIN_TOKEN before exposing the backend.');
 const db = new pg.Pool({ connectionString: DATABASE_URL, max: 5, connectionTimeoutMillis: 5000, statement_timeout: 5000 });
 db.on('error', error => console.error('Idle database connection failed', error.code));
 await db.query(await readFile(new URL('./schema.sql', import.meta.url), 'utf8'));
 const twilio = twilioConfig(process.env);
-const api = missionApi(db, ORIGIN_TOKEN, { apiKey: GEMINI_API_KEY, model: GEMINI_MODEL }, twilio, { apiKey: XAI_API_KEY, model: XAI_MODEL });
+const api = missionApi(db, ORIGIN_TOKEN, { apiKey: GEMINI_API_KEY, model: GEMINI_MODEL }, twilio);
 console.log(twilio ? 'Twilio SMS alerts enabled' : 'Twilio not configured; SMS alerts off');
 console.log(GEMINI_API_KEY ? `Gemini debrief enabled (${GEMINI_MODEL})` : 'GEMINI_API_KEY not set; using rule-based debriefs');
-console.log(XAI_API_KEY ? `Grok Ask Mission Control enabled (${XAI_MODEL})` : 'XAI_API_KEY not set; Ask Mission Control off');
 
 createServer(async (incoming, outgoing) => {
   try {

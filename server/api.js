@@ -2,10 +2,9 @@ import { timingSafeEqual } from 'node:crypto';
 import { runMission, siteIds, siteName, baseTargets } from '../src/mission.js';
 import { missionDebrief } from './debrief.js';
 import { sendMissionAlert } from './notify.js';
-import { askGrok, cleanQuestion } from './grok.js';
 
 export const missionIdPattern = '[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
-const pathPattern = new RegExp(`^/api/missions(?:/(?<id>${missionIdPattern})(?<ask>/ask)?)?$`);
+const pathPattern = new RegExp(`^/api/missions(?:/(?<id>${missionIdPattern}))?$`);
 const headers = { 'Cache-Control': 'no-store' };
 
 function reply(body, status = 200) {
@@ -35,30 +34,12 @@ function authorized(request, token) {
   return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
-export function missionApi(db, token, gemini = {}, twilio = null, grok = {}) {
+export function missionApi(db, token, gemini = {}, twilio = null) {
   return async request => {
     const route = new URL(request.url).pathname.match(pathPattern);
     if (!route) return reply({ error: 'Route not found.' }, 404);
     if (!authorized(request, token)) return reply({ error: 'Unauthorized.' }, 401);
-    const { id, ask } = route.groups;
-    // Ask Mission Control: Grok answers a question about one saved report. Nothing is stored.
-    if (ask) {
-      // GET tells the report page whether to show the panel at all.
-      if (request.method === 'GET') return reply({ enabled: !!grok.apiKey });
-      if (request.method !== 'POST') return reply({ error: 'Method not allowed.' }, 405);
-      if (!grok.apiKey) return reply({ error: 'Ask Mission Control is not configured.' }, 503);
-      let question;
-      try { question = cleanQuestion((await request.json())?.question); } catch { question = null; }
-      if (!question) return reply({ error: 'Ask a question between 3 and 300 characters.' }, 400);
-      const { rows: [row] } = await db.query('SELECT report FROM missions WHERE id = $1', [id]);
-      if (!row) return reply({ error: 'Mission report not found.' }, 404);
-      try {
-        return reply({ answer: await askGrok(row.report, question, grok), source: 'grok', model: grok.model });
-      } catch (error) {
-        console.error('Grok answer failed:', error.message); // never log the key or the response body
-        return reply({ error: 'Mission Control could not answer right now. Try again.' }, 502);
-      }
-    }
+    const { id } = route.groups;
     if (id && request.method === 'GET') {
       const { rows: [row] } = await db.query('SELECT id, created_at, report FROM missions WHERE id = $1', [id]);
       return row ? reply(row) : reply({ error: 'Mission report not found.' }, 404);
